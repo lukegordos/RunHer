@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, UserPlus } from "lucide-react";
 
 const Index = () => {
   return (
@@ -25,7 +25,10 @@ const Index = () => {
             </Link>
           </Button>
           <Button asChild variant="outline" size="lg" className="h-12 px-8">
-            <Link to="/register">Create account</Link>
+            <Link to="/register">
+              Create account
+              <UserPlus className="ml-2 h-4 w-4" />
+            </Link>
           </Button>
         </div>
       </div>

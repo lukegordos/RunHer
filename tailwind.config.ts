@@ -49,11 +49,11 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Add custom runHER brand colors
+        // Add custom runHER brand colors (now in purple)
         runher: {
-          DEFAULT: "#00a2d3", // Same as the hsl(196 100% 45%) primary color
-          dark: "#0089b3",    // Slightly darker version for hover states
-          light: "#4cc7eb",   // Lighter version for accents
+          DEFAULT: "#8B5CF6", // Changed to purple
+          dark: "#7C3AED",    // Darker purple for hover states
+          light: "#A78BFA",   // Lighter purple for accents
         },
       },
       borderRadius: {

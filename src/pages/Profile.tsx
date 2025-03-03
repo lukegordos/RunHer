@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,13 +10,17 @@ import {
   Clock, 
   Award, 
   Camera,
-  Save
+  Save,
+  X,
+  Upload
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import AppLayout from "@/components/AppLayout";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [profileData, setProfileData] = useState({
     name: "Sarah Johnson",
     location: "Portland, OR",
@@ -27,6 +31,8 @@ const Profile = () => {
     weeklyMiles: "25 miles",
     goals: "Training for Portland Marathon"
   });
+  
+  const [profileImage, setProfileImage] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -40,6 +46,33 @@ const Profile = () => {
       description: "Your profile changes have been saved.",
     });
   };
+  
+  const handlePhotoClick = () => {
+    if (isEditing && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+  
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setProfileImage(e.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleRemovePhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setProfileImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   return (
     <AppLayout>
@@ -49,19 +82,60 @@ const Profile = () => {
           <div className="w-full md:w-1/3 space-y-6">
             <div className="bg-white rounded-xl shadow-sm p-6 text-center">
               <div className="relative w-32 h-32 mx-auto mb-4">
-                <div className="w-full h-full rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-                  <User className="w-16 h-16 text-muted-foreground" />
+                <div 
+                  className={`w-full h-full rounded-full overflow-hidden ${isEditing ? 'cursor-pointer' : ''} ${!profileImage ? 'bg-secondary flex items-center justify-center' : ''}`}
+                  onClick={handlePhotoClick}
+                >
+                  {profileImage ? (
+                    <Avatar className="w-full h-full">
+                      <AvatarImage src={profileImage} alt={profileData.name} className="w-full h-full object-cover" />
+                      <AvatarFallback className="w-full h-full bg-secondary text-muted-foreground text-2xl">
+                        {profileData.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <User className="w-16 h-16 text-muted-foreground" />
+                  )}
                 </div>
                 {isEditing && (
-                  <button 
-                    className="absolute bottom-0 right-0 bg-runher text-white p-2 rounded-full shadow-md"
-                    aria-label="Upload photo"
-                  >
-                    <Camera className="w-4 h-4" />
-                  </button>
+                  <>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handleFileChange}
+                    />
+                    {profileImage ? (
+                      <button 
+                        className="absolute bottom-0 right-0 bg-destructive text-white p-2 rounded-full shadow-md"
+                        aria-label="Remove photo"
+                        onClick={handleRemovePhoto}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <button 
+                        className="absolute bottom-0 right-0 bg-runher text-white p-2 rounded-full shadow-md"
+                        aria-label="Upload photo"
+                        onClick={handlePhotoClick}
+                      >
+                        <Camera className="w-4 h-4" />
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
-              <h1 className="text-2xl font-bold">{profileData.name}</h1>
+              {isEditing ? (
+                <Input 
+                  name="name"
+                  value={profileData.name} 
+                  onChange={handleChange}
+                  className="text-center text-xl font-bold mb-2"
+                />
+              ) : (
+                <h1 className="text-2xl font-bold">{profileData.name}</h1>
+              )}
               <div className="flex items-center justify-center mt-2 text-muted-foreground">
                 <MapPin className="w-4 h-4 mr-1" />
                 <span>{profileData.location}</span>

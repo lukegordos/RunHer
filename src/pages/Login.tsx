@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, AtSign, Lock, Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
@@ -11,6 +11,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,8 +37,8 @@ const Login = () => {
       });
       setIsLoading(false);
       
-      // Redirect would happen here in a real implementation
-      // navigate("/dashboard");
+      // Redirect to profile page after login
+      navigate("/profile");
     }, 1500);
   };
 

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link } from "react-router-dom";
-import { ChevronRight, AtSign, Lock, Eye, EyeOff } from "lucide-react";
+import { ChevronRight, AtSign, Lock, Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 
 const Login = () => {
@@ -75,6 +75,16 @@ const Login = () => {
       {/* Right side - Login form */}
       <div className="w-full md:w-1/2 flex justify-center items-center p-8 md:p-12 bg-white">
         <div className="w-full max-w-md space-y-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+          {/* Back to home link */}
+          <div className="flex items-center">
+            <Button asChild variant="ghost" size="sm" className="pl-0 text-muted-foreground hover:text-runher">
+              <Link to="/">
+                <ChevronLeft className="mr-1 h-4 w-4" />
+                Back to home
+              </Link>
+            </Button>
+          </div>
+
           <div className="text-center md:text-left">
             <h2 className="text-2xl font-semibold tracking-tight">
               Welcome back

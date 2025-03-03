@@ -24,7 +24,7 @@ import {
   MapPin, 
   Plus, 
   Users,
-  Running
+  Activity
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/use-toast";
@@ -300,7 +300,7 @@ const Calendar = () => {
                   {todaysEvents.map(event => (
                     <div key={event.id} className="border border-border rounded-lg p-5">
                       <h3 className="text-lg font-semibold mb-2 flex items-center">
-                        <Running className="mr-2 h-5 w-5 text-runher" />
+                        <Activity className="mr-2 h-5 w-5 text-runher" />
                         {event.title}
                       </h3>
                       

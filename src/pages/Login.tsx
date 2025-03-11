@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, AtSign, Lock, Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { signIn, loading: isLoading } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,21 +26,12 @@ const Login = () => {
       return;
     }
     
-    setIsLoading(true);
-    
-    // This is where you would normally handle authentication
-    // For now we'll just simulate a login process
-    
-    setTimeout(() => {
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
-      });
-      setIsLoading(false);
-      
-      // Redirect to profile page after login
+    try {
+      await signIn(email, password);
       navigate("/profile");
-    }, 1500);
+    } catch (error) {
+      // Error is already handled in the signIn function
+    }
   };
 
   return (

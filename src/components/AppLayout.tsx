@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   User,
   Users,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -22,7 +22,9 @@ type AppLayoutProps = {
 
 const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
   
   const navigation = [
     { name: "Home", href: "/", icon: Home },
@@ -37,16 +39,32 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     return location.pathname === path;
   };
   
-  const handleLogout = () => {
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    });
-    // In a real app, this would navigate to login or perform actual logout
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/login');
   };
   
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  // Get initials from user's email or full_name metadata
+  const getInitials = () => {
+    if (!user) return "?";
+    
+    const fullName = user.user_metadata?.full_name as string;
+    
+    if (fullName) {
+      return fullName
+        .split(' ')
+        .map(part => part[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+    }
+    
+    // Fallback to email
+    return user.email ? user.email.substring(0, 2).toUpperCase() : "?";
   };
   
   return (
@@ -82,7 +100,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             <div className="flex items-center">
               <div className="hidden md:flex items-center space-x-3">
                 <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-runher text-white">SJ</AvatarFallback>
+                  <AvatarFallback className="bg-runher text-white">{getInitials()}</AvatarFallback>
                 </Avatar>
                 <Button 
                   variant="ghost" 
@@ -132,9 +150,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             <div className="flex items-center justify-between px-3 py-2">
               <div className="flex items-center">
                 <Avatar className="h-9 w-9 mr-2">
-                  <AvatarFallback className="bg-runher text-white">SJ</AvatarFallback>
+                  <AvatarFallback className="bg-runher text-white">{getInitials()}</AvatarFallback>
                 </Avatar>
-                <span className="font-medium">Sarah Johnson</span>
+                <span className="font-medium">{user?.user_metadata?.full_name || user?.email || 'User'}</span>
               </div>
               <Button 
                 variant="ghost" 

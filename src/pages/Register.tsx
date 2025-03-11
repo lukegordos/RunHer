@@ -1,10 +1,10 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ChevronRight, AtSign, Lock, Eye, EyeOff, UserPlus, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
 
 const Register = () => {
   const [name, setName] = useState("");
@@ -12,8 +12,7 @@ const Register = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const { signUp, loading: isLoading } = useAuth();
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,12 +35,21 @@ const Register = () => {
       return;
     }
     
-    try {
-      await signUp(email, password, name);
-      navigate("/login");
-    } catch (error) {
-      // Error is already handled in the signUp function
-    }
+    setIsLoading(true);
+    
+    // This is where you would normally handle registration
+    // For now we'll just simulate a registration process
+    
+    setTimeout(() => {
+      toast({
+        title: "Account created!",
+        description: "Your account has been successfully created.",
+      });
+      setIsLoading(false);
+      
+      // Redirect would happen here in a real implementation
+      // navigate("/login");
+    }, 1500);
   };
 
   return (

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,12 +20,14 @@ import {
   Share2,
   Navigation,
   RotateCcw,
-  Flag
+  Flag,
+  AlertTriangle
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import AppLayout from "@/components/AppLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
+import { Link } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -188,6 +189,7 @@ const RunningRoutes = () => {
   const [preferredDistance, setPreferredDistance] = useState([3]); // miles
   const [generatedRoutes, setGeneratedRoutes] = useState<RunRoute[]>([]);
   const [startingLocation, setStartingLocation] = useState("");
+  const [routeType, setRouteType] = useState("loop");
   
   const routes: RunRoute[] = [
     {
@@ -326,6 +328,11 @@ const RunningRoutes = () => {
     setTimeout(() => {
       const terrainOptions = ["Paved", "Trail", "Mixed"];
       const difficultyOptions = ["Easy", "Moderate", "Challenging"];
+      const routeNames = {
+        "loop": ["Loop", "Circuit", "Circular Route"],
+        "out-and-back": ["Out-and-Back", "There-and-Back", "Return Path"],
+        "point-to-point": ["Point-to-Point", "One-Way Route", "Direct Path"]
+      };
       
       // Generate 3 routes with the preferred distance
       const newRoutes: RunRoute[] = Array(3).fill(0).map((_, index) => {
@@ -333,9 +340,13 @@ const RunningRoutes = () => {
         const variance = (Math.random() * 0.4) - 0.2; // +/- 20% variance
         const routeDistance = +(exactDistance * (1 + variance)).toFixed(1);
         
+        // Use the route type to determine the name format
+        const nameOptions = routeNames[routeType as keyof typeof routeNames] || routeNames.loop;
+        const routeTypeName = nameOptions[index % nameOptions.length];
+        
         return {
           id: `gen-${Date.now()}-${index}`,
-          name: `${startingLocation} ${["Loop", "Circuit", "Path"][index]}`,
+          name: `${startingLocation} ${routeTypeName}`,
           location: startingLocation,
           distance: `${routeDistance} miles`,
           distanceNum: routeDistance,
@@ -356,7 +367,7 @@ const RunningRoutes = () => {
       
       toast({
         title: "Routes generated",
-        description: `Three ${preferredDistance[0]}-mile routes generated from ${startingLocation}`,
+        description: `Three ${preferredDistance[0]}-mile ${routeType.replace("-", " ")} routes generated from ${startingLocation}`,
       });
       
       // Switch to discover tab to show the new routes
@@ -398,6 +409,7 @@ const RunningRoutes = () => {
               <ArrowUpDown className="h-4 w-4" />
               Sort
             </Button>
+            
             <Button 
               className="h-11 bg-runher hover:bg-runher-dark flex items-center gap-2"
               onClick={() => setShowGenerateDialog(true)}
@@ -405,6 +417,16 @@ const RunningRoutes = () => {
               <Navigation className="h-4 w-4" />
               Generate Route
             </Button>
+            
+            <Link to="/hazards">
+              <Button 
+                variant="outline" 
+                className="h-11 flex items-center gap-2"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                Report Hazard
+              </Button>
+            </Link>
           </div>
           
           {filterVisible && (
@@ -576,6 +598,20 @@ const RunningRoutes = () => {
                   <span>1 mile</span>
                   <span>15 miles</span>
                 </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Route Type</label>
+                <Select value={routeType} onValueChange={setRouteType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select route type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="loop">Loop (Start and end at same point)</SelectItem>
+                    <SelectItem value="out-and-back">Out-and-Back (Go out and return same way)</SelectItem>
+                    <SelectItem value="point-to-point">Point-to-Point (Different start and end)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">

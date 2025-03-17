@@ -213,7 +213,7 @@ const Index = () => {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="h-12 px-8 border-white text-white hover:bg-white/10">
+            <Button asChild size="lg" className="h-12 px-8 bg-white text-runher hover:bg-gray-100">
               <Link to="/routes">
                 Explore safe routes
                 <Route className="ml-2 h-4 w-4" />
@@ -232,7 +232,7 @@ const Index = () => {
               <p className="text-sm text-muted-foreground mt-1">Running safely, together.</p>
             </div>
             <div className="text-sm text-muted-foreground">
-              © 2023 runHER. All rights reserved.
+              © 2025 runHER. All rights reserved.
             </div>
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Route, Map, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import RouteFilters from "@/components/routes/RouteFilters";
 import RouteSearchBar from "@/components/routes/RouteSearchBar";
 import EmptyTabState from "@/components/routes/EmptyTabState";
 import { sampleRoutes } from "@/components/routes/RoutesData";
+import RoutesMap from "@/components/routes/RoutesMap";
 
 const RunningRoutes = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,6 +26,7 @@ const RunningRoutes = () => {
   });
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [generatedRoutes, setGeneratedRoutes] = useState<RunRoute[]>([]);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
   
   // Combine standard routes with generated routes
   const allRoutes = [...sampleRoutes, ...generatedRoutes];
@@ -82,6 +83,25 @@ const RunningRoutes = () => {
               setFilters={setFilters}
             />
           )}
+          
+          <div className="flex justify-end mt-4">
+            <div className="inline-flex rounded-md shadow-sm">
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                className={viewMode === "list" ? "bg-runher hover:bg-runher-dark" : ""}
+                onClick={() => setViewMode("list")}
+              >
+                List View
+              </Button>
+              <Button
+                variant={viewMode === "map" ? "default" : "outline"}
+                className={`ml-1 ${viewMode === "map" ? "bg-runher hover:bg-runher-dark" : ""}`}
+                onClick={() => setViewMode("map")}
+              >
+                Map View
+              </Button>
+            </div>
+          </div>
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -93,11 +113,15 @@ const RunningRoutes = () => {
           
           <TabsContent value="discover" className="mt-0">
             {filteredRoutes.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredRoutes.map(route => (
-                  <RouteCard key={route.id} route={route} />
-                ))}
-              </div>
+              viewMode === "list" ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredRoutes.map(route => (
+                    <RouteCard key={route.id} route={route} />
+                  ))}
+                </div>
+              ) : (
+                <RoutesMap routes={filteredRoutes} />
+              )
             ) : (
               <EmptyTabState
                 icon={Map}

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -167,9 +166,9 @@ const Calendar = () => {
                       New Run
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
+                  <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Schedule a Run</DialogTitle>
+                      <DialogTitle className="text-runher">Schedule a Run</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                       <div>
@@ -190,6 +189,24 @@ const Calendar = () => {
                               onSelect={(date) => date && setNewEvent({...newEvent, date})}
                               disabled={(date) => date < new Date()}
                               className="rounded-md"
+                              classNames={{
+                                months: "flex flex-col space-y-4",
+                                month: "space-y-4",
+                                caption: "flex justify-center pt-1 relative items-center",
+                                caption_label: "text-sm font-medium",
+                                nav: "space-x-1 flex items-center",
+                                nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+                                nav_button_previous: "absolute left-1",
+                                nav_button_next: "absolute right-1",
+                                table: "w-full border-collapse space-y-1",
+                                head_row: "flex",
+                                head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
+                                row: "flex w-full mt-2",
+                                cell: "h-8 w-8 text-center text-xs p-0 relative",
+                                day: "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
+                                day_selected: "bg-runher text-white hover:bg-runher hover:text-white",
+                                day_today: "bg-accent text-accent-foreground",
+                              }}
                             />
                           </div>
                         </div>
@@ -247,9 +264,11 @@ const Calendar = () => {
                           className="min-h-[80px]"
                         />
                       </div>
-                      <Button onClick={handleAddEvent} className="w-full bg-runher hover:bg-runher-dark">
-                        Schedule Run
-                      </Button>
+                      <div className="pt-2">
+                        <Button onClick={handleAddEvent} className="w-full bg-runher hover:bg-runher-dark text-white font-medium h-10">
+                          Schedule Run
+                        </Button>
+                      </div>
                     </div>
                   </DialogContent>
                 </Dialog>

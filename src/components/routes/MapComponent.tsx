@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for the default marker icon issue in react-leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { CrimeData } from '@/services/crimeDataService';
+import { createCrimeMarkerIcon, createCrimeLegendControl } from './CrimeMarker';
 
 let DefaultIcon = L.icon({
   iconUrl: icon,
@@ -29,6 +31,8 @@ interface MapComponentProps {
     position: [number, number];
     title?: string;
   }[];
+  crimeData?: CrimeData[];
+  showCrimeData?: boolean;
   height?: string;
   className?: string;
 }
@@ -38,11 +42,15 @@ const MapComponent = ({
   zoom,
   routes = [],
   markers = [],
+  crimeData = [],
+  showCrimeData = true,
   height = '400px',
   className = '',
 }: MapComponentProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
+  const [legendAdded, setLegendAdded] = useState(false);
+  const crimeLayerRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     // Initialize map if it doesn't exist
@@ -53,6 +61,9 @@ const MapComponent = ({
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(leafletMapRef.current);
+      
+      // Create a layer group for crime data
+      crimeLayerRef.current = L.layerGroup().addTo(leafletMapRef.current);
     }
 
     return () => {
@@ -60,6 +71,7 @@ const MapComponent = ({
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
         leafletMapRef.current = null;
+        crimeLayerRef.current = null;
       }
     };
   }, []);
@@ -115,6 +127,44 @@ const MapComponent = ({
       }
     });
   }, [markers]);
+  
+  // Add crime data to the map
+  useEffect(() => {
+    if (!leafletMapRef.current || !crimeLayerRef.current) return;
+    
+    // Clear existing crime markers
+    crimeLayerRef.current.clearLayers();
+    
+    // If crime data should be shown
+    if (showCrimeData && crimeData.length > 0) {
+      // Add crime legend if not already added
+      if (!legendAdded && leafletMapRef.current) {
+        createCrimeLegendControl().addTo(leafletMapRef.current);
+        setLegendAdded(true);
+      }
+      
+      // Add crime markers
+      crimeData.forEach(crime => {
+        const position: [number, number] = [crime.location.latitude, crime.location.longitude];
+        const marker = L.marker(position, {
+          icon: createCrimeMarkerIcon(crime.severity)
+        });
+        
+        // Create popup content
+        const popupContent = `
+          <div>
+            <strong>${crime.description}</strong>
+            <p>Date: ${new Date(crime.date).toLocaleDateString()}</p>
+            <p>Severity: ${crime.severity.charAt(0).toUpperCase() + crime.severity.slice(1)}</p>
+            ${crime.location.address ? `<p>Address: ${crime.location.address}</p>` : ''}
+          </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+        marker.addTo(crimeLayerRef.current!);
+      });
+    }
+  }, [crimeData, showCrimeData, legendAdded]);
 
   return (
     <div 

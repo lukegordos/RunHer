@@ -14,6 +14,15 @@ import EmptyTabState from "@/components/routes/EmptyTabState";
 import { sampleRoutes } from "@/components/routes/RoutesData";
 import RoutesMap from "@/components/routes/RoutesMap";
 
+interface RouteData {
+  id: string;
+  name: string;
+  distance: string;
+  distanceNum: number;
+  points: [number, number][];
+  color?: string;
+}
+
 const RunningRoutes = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("discover");
@@ -27,10 +36,10 @@ const RunningRoutes = () => {
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [generatedRoutes, setGeneratedRoutes] = useState<RunRoute[]>([]);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  
+
   // Combine standard routes with generated routes
   const allRoutes = [...sampleRoutes, ...generatedRoutes];
-  
+
   // Filter routes based on search and filters
   const filteredRoutes = allRoutes.filter(route => {
     if (searchQuery && !route.name.toLowerCase().includes(searchQuery.toLowerCase()) && 
@@ -53,13 +62,19 @@ const RunningRoutes = () => {
     
     return true;
   });
-  
+
+  // Generate proper route points for each route
+  const routesWithPoints = filteredRoutes.map(route => {
+    const points = generateRoutePoints(route.distanceNum);
+    return { ...route, points };
+  });
+
   const handleGenerateRoutes = (newRoutes: RunRoute[]) => {
     setGeneratedRoutes([...newRoutes]);
     // Switch to discover tab to show the new routes
     setActiveTab("discover");
   };
-  
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -120,7 +135,11 @@ const RunningRoutes = () => {
                   ))}
                 </div>
               ) : (
-                <RoutesMap routes={filteredRoutes} />
+                <RoutesMap 
+                  routes={routesWithPoints}
+                  height="600px"
+                  className="rounded-lg shadow-lg"
+                />
               )
             ) : (
               <EmptyTabState
@@ -171,5 +190,21 @@ const RunningRoutes = () => {
     </AppLayout>
   );
 };
+
+// Helper function to generate route points
+function generateRoutePoints(distance: number): [number, number][] {
+  const points: [number, number][] = [];
+  const steps = Math.max(20, Math.floor(distance * 10));
+  const scaleFactor = distance * 0.005;
+
+  for (let i = 0; i <= steps; i++) {
+    const angle = (i / steps) * Math.PI * 2;
+    const lat = 38.9072 + Math.sin(angle) * scaleFactor;
+    const lng = -77.0369 + Math.cos(angle) * scaleFactor;
+    points.push([lat, lng]);
+  }
+
+  return points;
+}
 
 export default RunningRoutes;

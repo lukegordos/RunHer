@@ -1,12 +1,13 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, AtSign, Lock, Eye, EyeOff, UserPlus, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import api from "@/services/api"; // Fix import path
 
 const Register = () => {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,176 +38,172 @@ const Register = () => {
     
     setIsLoading(true);
     
-    // This is where you would normally handle registration
-    // For now we'll just simulate a registration process
-    
-    setTimeout(() => {
-      toast({
-        title: "Account created!",
-        description: "Your account has been successfully created.",
-      });
-      setIsLoading(false);
+    try {
+      console.log('Starting registration with data:', { username: name, email });
       
-      // Redirect would happen here in a real implementation
-      // navigate("/login");
-    }, 1500);
+      // Try registration using the API service
+      const response = await api.post('/auth/register', {
+        username: name,
+        email,
+        password
+      });
+      
+      console.log('Registration successful:', response.data);
+      
+      toast({
+        title: "Success!",
+        description: "Account created successfully.",
+      });
+      
+      navigate('/login');
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      toast({
+        title: "Registration failed",
+        description: error.message || "Could not connect to server",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Left side - Branding section */}
-      <div className="w-full md:w-1/2 bg-runher flex flex-col justify-center items-center p-8 md:p-12">
-        <div className="animate-fade-in w-full max-w-md">
-          <div className="text-center md:text-left">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
-              runHER
-            </h1>
-            <p className="text-white/90 text-lg md:text-xl mb-8">
-              Join our community of women who run. Sign up today.
-            </p>
-            
-            <div className="hidden md:block mt-12">
-              <div className="flex items-center space-x-3 mb-4 opacity-90">
-                <div className="h-1 w-1 rounded-full bg-white"></div>
-                <p className="text-white text-sm">Track your progress</p>
-              </div>
-              <div className="flex items-center space-x-3 mb-4 opacity-90 animate-pulse-soft">
-                <div className="h-1 w-1 rounded-full bg-white"></div>
-                <p className="text-white text-sm">Connect with runners</p>
-              </div>
-              <div className="flex items-center space-x-3 mb-4 opacity-90">
-                <div className="h-1 w-1 rounded-full bg-white"></div>
-                <p className="text-white text-sm">Achieve your goals</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Right side - Registration form */}
-      <div className="w-full md:w-1/2 flex justify-center items-center p-8 md:p-12 bg-white">
-        <div className="w-full max-w-md space-y-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-          {/* Back to home link */}
-          <div className="flex items-center">
-            <Button asChild variant="ghost" size="sm" className="pl-0 text-muted-foreground hover:text-runher">
-              <Link to="/">
-                <ChevronLeft className="mr-1 h-4 w-4" />
-                Back to home
-              </Link>
-            </Button>
-          </div>
-
-          <div className="text-center md:text-left">
-            <h2 className="text-2xl font-semibold tracking-tight">
-              Create an account
-            </h2>
-            <p className="text-muted-foreground mt-2">
-              Join the runHER community today
+    <div className="flex min-h-screen">
+      {/* Left side - Form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold">Create an Account</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Join RunHer and start your journey
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-6">
             <div className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="text-sm font-medium">
-                  Full Name
+              <div>
+                <label htmlFor="name" className="sr-only">
+                  Name
                 </label>
                 <div className="relative">
-                  <UserPlus className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
                   <Input
                     id="name"
+                    name="name"
                     type="text"
-                    placeholder="Jane Doe"
+                    required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="pl-10 h-12 bg-secondary border-none"
+                    className="pl-10"
+                    placeholder="Username"
                   />
+                  <UserPlus className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">
+              <div>
+                <label htmlFor="email" className="sr-only">
                   Email
                 </label>
                 <div className="relative">
-                  <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
                   <Input
                     id="email"
+                    name="email"
                     type="email"
-                    placeholder="name@example.com"
+                    required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 h-12 bg-secondary border-none"
+                    className="pl-10"
+                    placeholder="Email address"
                   />
+                  <AtSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
+              <div>
+                <label htmlFor="password" className="sr-only">
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
+                    required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-12 bg-secondary border-none"
+                    className="pl-10 pr-10"
+                    placeholder="Password"
                   />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
+                      <EyeOff className="h-5 w-5 text-gray-400" />
                     ) : (
-                      <Eye className="h-5 w-5" />
+                      <Eye className="h-5 w-5 text-gray-400" />
                     )}
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-medium">
+              <div>
+                <label htmlFor="confirmPassword" className="sr-only">
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-5 w-5" />
                   <Input
                     id="confirmPassword"
+                    name="confirmPassword"
                     type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
+                    required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="pl-10 h-12 bg-secondary border-none"
+                    className="pl-10 pr-10"
+                    placeholder="Confirm password"
                   />
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 </div>
               </div>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full h-12 rounded-md bg-runher hover:bg-runher-dark transition-all flex items-center justify-center space-x-2"
-              disabled={isLoading}
-            >
-              <span>Create account</span>
-              {!isLoading && <ChevronRight className="h-4 w-4" />}
-            </Button>
+            <div>
+              <Button
+                type="submit"
+                className="w-full flex justify-center items-center gap-2"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  "Creating account..."
+                ) : (
+                  <>
+                    Create Account
+                    <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            </div>
           </form>
 
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link
-                to="/login"
-                className="text-runher hover:text-runher-dark transition-all font-medium"
-              >
-                Sign in
-              </Link>
-            </p>
+          <p className="mt-4 text-center text-sm text-gray-600">
+            Already have an account?{" "}
+            <Link to="/login" className="font-medium text-primary hover:underline flex items-center justify-center gap-1">
+              <ChevronLeft className="h-4 w-4" />
+              Back to Login
+            </Link>
+          </p>
+        </div>
+      </div>
+
+      {/* Right side - Image */}
+      <div className="hidden lg:block flex-1 bg-cover bg-center" style={{ backgroundImage: "url('/running.jpg')" }}>
+        <div className="h-full w-full bg-black bg-opacity-50 flex items-center justify-center text-white p-12">
+          <div className="max-w-md">
+            <h1 className="text-4xl font-bold mb-4">Welcome to RunHer</h1>
+            <p className="text-lg">Join our community of runners and start tracking your progress today.</p>
           </div>
         </div>
       </div>

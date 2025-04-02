@@ -1,69 +1,65 @@
-# Welcome to your Lovable project
+# RunHer Web App
 
-## Project info
+## Setup Instructions
 
-**URL**: https://lovable.dev/projects/dc4ff79c-92ee-423a-857c-4e081ce88cd4
+### Prerequisites
+- Node.js installed
+- Git installed
+- Access to MongoDB Atlas (ask repository owner for credentials)
 
-## How can I edit this code?
+### Installation Steps
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/dc4ff79c-92ee-423a-857c-4e081ce88cd4) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+1. Clone the repository:
+```bash
+git clone https://github.com/lukegordos/RunHer.git
+cd RunHer
 ```
 
-**Edit a file directly in GitHub**
+2. Install dependencies:
+```bash
+# Install frontend dependencies
+npm install
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+# Install backend dependencies
+cd RunHerDatabase
+npm install
+cd ..
+```
 
-**Use GitHub Codespaces**
+3. Create `.env` file:
+- In the `RunHerDatabase` folder, create a file named `.env`
+- Add the following content (ask repository owner for the actual values):
+```
+PORT=5000
+MONGODB_URI=mongodb+srv://lukegordos30:Basketball3008@cluster.2r7xs.mongodb.net/runher_db
+JWT_SECRET=your_jwt_secret_key_here
+FRONTEND_URL=http://localhost:3000
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+4. Whitelist your IP in MongoDB Atlas:
+- Go to [MongoDB Atlas](https://cloud.mongodb.com)
+- Log in with provided credentials
+- Click on the cluster
+- Click "Network Access"
+- Click "Add IP Address"
+- Click "Add Current IP Address"
 
-## What technologies are used for this project?
+5. Run the application:
+```bash
+npm run dev:all
+```
 
-This project is built with .
+The app should now be running at:
+- Frontend: http://localhost:8080
+- Backend: http://localhost:5000
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Features
+- User Registration
+- User Authentication
+- [Add other features here]
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/dc4ff79c-92ee-423a-857c-4e081ce88cd4) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+## Troubleshooting
+If you get a MongoDB connection error:
+1. Make sure your IP is whitelisted in MongoDB Atlas
+2. Check that your `.env` file has the correct MongoDB URI
+3. Ensure you've installed all dependencies with `npm install`

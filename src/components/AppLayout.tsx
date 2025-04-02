@@ -57,7 +57,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link to="/" className="text-xl md:text-2xl font-bold text-runher">
-                runHER
+                runher
               </Link>
             </div>
             

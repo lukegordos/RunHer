@@ -49,7 +49,7 @@ const Login = () => {
         <div className="animate-fade-in w-full max-w-md">
           <div className="text-center md:text-left">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
-              runHER
+              runher
             </h1>
             <p className="text-white/90 text-lg md:text-xl mb-8">
               Running empowers women. Sign in to join the community.

@@ -59,7 +59,7 @@ const Register = () => {
         <div className="animate-fade-in w-full max-w-md">
           <div className="text-center md:text-left">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
-              runHER
+              runher
             </h1>
             <p className="text-white/90 text-lg md:text-xl mb-8">
               Join our community of women who run. Sign up today.
@@ -101,7 +101,7 @@ const Register = () => {
               Create an account
             </h2>
             <p className="text-muted-foreground mt-2">
-              Join the runHER community today
+              Join the runher community today
             </p>
           </div>
 

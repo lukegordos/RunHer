@@ -60,13 +60,13 @@ const Index = () => {
           <div className="flex flex-col lg:flex-row items-center gap-10">
             <div className="flex-1 text-center lg:text-left space-y-6 animate-fade-in">
               <div className="inline-block bg-runher/10 text-runher px-4 py-2 rounded-full text-sm font-medium mb-2">
-                Run Safer. Run Together.
+                Run Strong. Run Safe.
               </div>
               <h1 className="text-4xl md:text-6xl font-bold tracking-tighter leading-tight">
                 Safety in <span className="text-runher">Community</span> for Women Runners
               </h1>
               <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0">
-                runHER creates a safer running experience through community, real-time hazard alerts, and routes designed with women's safety in mind.
+                runher creates a safer running experience through community, real-time hazard alerts, and routes designed with women's safety in mind.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-4">
@@ -103,9 +103,9 @@ const Index = () => {
             <div className="flex-1 relative max-w-md lg:max-w-none animate-fade-in" style={{ animationDelay: "0.2s" }}>
               <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-xl">
                 <img
-                  src="https://images.unsplash.com/photo-1516571748831-5d81767b788d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1074&q=80"
-                  alt="Women running together"
-                  className="w-full h-full object-cover"
+                  src="/images/runherLogo.png?v=1"
+                  alt="runher Logo"
+                  className="w-full h-full object-contain bg-white"
                 />
               </div>
               <div className="absolute -bottom-5 -left-5 glass-morphism p-4 rounded-lg max-w-[200px] hidden md:block">

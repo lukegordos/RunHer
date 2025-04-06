@@ -1,4 +1,5 @@
 // Crime data service for fetching crime data from DC GIS API
+import { fetchNewsForLocation, analyzeNewsForSafety, calculateNewsSafetyAdjustment } from './newsApiService';
 
 export interface CrimeData {
   id: string;
@@ -148,8 +149,12 @@ const mapSeverity = (method: string, offense: string): 'low' | 'medium' | 'high'
 };
 
 // Calculate safety score based on crime data
-export const calculateSafetyScore = (crimes: CrimeData[]): number => {
-  if (crimes.length === 0) return 5.0;
+export const calculateSafetyScore = async (
+  crimes: CrimeData[],
+  latitude: number,
+  longitude: number
+): Promise<{score: number, newsAdjusted: boolean}> => {
+  if (crimes.length === 0) return { score: 5.0, newsAdjusted: false };
   
   // Weight crimes by severity
   const severityWeights = {
@@ -160,9 +165,38 @@ export const calculateSafetyScore = (crimes: CrimeData[]): number => {
   
   const totalWeight = crimes.reduce((sum, crime) => sum + severityWeights[crime.severity], 0);
   
-  // Calculate safety score (5 is safest, 1 is least safe)
+  // Calculate base safety score (5 is safest, 1 is least safe)
   // The formula is designed to decrease as crime count and severity increase
-  const safetyScore = 5 - Math.min(4, (totalWeight / 10));
+  let safetyScore = 5 - Math.min(4, (totalWeight / 10));
+  safetyScore = Math.max(1, Math.round(safetyScore * 10) / 10);
   
-  return Math.max(1, Math.round(safetyScore * 10) / 10);
+  try {
+    // Fetch and analyze news data for the location
+    console.log('Fetching news data for predictive safety analysis...');
+    const newsArticles = await fetchNewsForLocation(latitude, longitude);
+    
+    if (newsArticles.length > 0) {
+      // Analyze news for safety concerns
+      const newsImpact = analyzeNewsForSafety(newsArticles);
+      console.log('News safety impact analysis:', newsImpact);
+      
+      if (newsImpact > 0) {
+        // Calculate adjustment based on news data
+        const adjustment = calculateNewsSafetyAdjustment(newsImpact);
+        console.log('Safety score adjustment from news:', adjustment);
+        
+        // Apply adjustment to safety score
+        safetyScore = Math.max(1, Math.min(5, safetyScore + adjustment));
+        // Round to 1 decimal place
+        safetyScore = Math.round(safetyScore * 10) / 10;
+        
+        return { score: safetyScore, newsAdjusted: true };
+      }
+    }
+  } catch (error) {
+    console.error('Error incorporating news data into safety score:', error);
+    // Continue with the base safety score if news analysis fails
+  }
+  
+  return { score: safetyScore, newsAdjusted: false };
 };

@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import MapComponent from './MapComponent';
-import { fetchCrimeData, CrimeData } from '@/services/crimeDataService';
+import { fetchCrimeData, CrimeData, calculateSafetyScore } from '@/services/crimeDataService';
 import { Button } from '@/components/ui/button';
-import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, NewspaperIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface RoutesMapProps {
   routes?: {
@@ -22,6 +24,7 @@ const RoutesMap = ({ routes = [], height, className }: RoutesMapProps) => {
   const [crimeData, setCrimeData] = useState<CrimeData[]>([]);
   const [showCrimeData, setShowCrimeData] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [safetyScore, setSafetyScore] = useState<{score: number, newsAdjusted: boolean} | null>(null);
 
   // Memoize the fetch function to prevent unnecessary re-creation
   const fetchCrimeDataForLocation = useCallback(async () => {
@@ -32,9 +35,15 @@ const RoutesMap = ({ routes = [], height, className }: RoutesMapProps) => {
       const crimes = await fetchCrimeData(center[0], center[1], 5);
       console.log('RoutesMap: Successfully fetched crimes:', crimes.length);
       setCrimeData(crimes);
+      
+      // Calculate safety score with news data integration
+      const score = await calculateSafetyScore(crimes, center[0], center[1]);
+      setSafetyScore(score);
+      console.log('RoutesMap: Safety score calculated:', score);
     } catch (error) {
       console.error('RoutesMap: Error fetching crime data:', error);
       setCrimeData([]); // Reset crime data on error
+      setSafetyScore(null);
     } finally {
       setLoading(false);
     }
@@ -63,7 +72,7 @@ const RoutesMap = ({ routes = [], height, className }: RoutesMapProps) => {
 
   return (
     <div className="relative">
-      <div className="absolute top-2 right-2 z-[1000]">
+      <div className="absolute top-2 right-2 z-[1000] flex flex-col gap-2">
         <Button
           variant="secondary"
           size="sm"
@@ -82,10 +91,35 @@ const RoutesMap = ({ routes = [], height, className }: RoutesMapProps) => {
             </>
           )}
         </Button>
+        
+        {safetyScore && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="bg-white rounded-md p-2 shadow flex items-center justify-between">
+                  <span className="font-medium">Safety Score: {safetyScore.score.toFixed(1)}/5</span>
+                  {safetyScore.newsAdjusted && (
+                    <Badge variant="outline" className="ml-2 bg-blue-50">
+                      <NewspaperIcon className="w-3 h-3 mr-1" />
+                      News
+                    </Badge>
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Safety score based on crime data {safetyScore.newsAdjusted ? 'and recent news' : ''}</p>
+                {safetyScore.newsAdjusted && (
+                  <p className="text-xs mt-1">Includes predictive analysis from news in the past 14 days</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
+      
       {loading && (
         <div className="absolute top-2 left-2 z-[1000] bg-white px-3 py-1 rounded-md shadow">
-          Loading crime data...
+          Loading data...
         </div>
       )}
       <MapComponent {...mapProps} />

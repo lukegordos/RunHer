@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   User,
   Users,
@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -22,7 +23,18 @@ type AppLayoutProps = {
 
 const AppLayout = ({ children }: AppLayoutProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const auth = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Get user initials
+  const getInitials = (name: string = '') => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase();
+  };
   
   const navigation = [
     { name: "Home", href: "/", icon: Home },
@@ -38,11 +50,12 @@ const AppLayout = ({ children }: AppLayoutProps) => {
   };
   
   const handleLogout = () => {
+    auth?.logout();
     toast({
       title: "Logged out",
       description: "You have been successfully logged out.",
     });
-    // In a real app, this would navigate to login or perform actual logout
+    navigate('/login');
   };
   
   const toggleMobileMenu = () => {
@@ -57,7 +70,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link to="/" className="text-xl md:text-2xl font-bold text-runher">
-                runHER
+                runher
               </Link>
             </div>
             
@@ -82,7 +95,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             <div className="flex items-center">
               <div className="hidden md:flex items-center space-x-3">
                 <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-runher text-white">SJ</AvatarFallback>
+                  <AvatarFallback className="bg-runher text-white">
+                    {auth?.user?.username ? getInitials(auth.user.username) : '?'}
+                  </AvatarFallback>
                 </Avatar>
                 <Button 
                   variant="ghost" 

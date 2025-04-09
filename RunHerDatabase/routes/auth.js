@@ -1,168 +1,91 @@
 const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const authenticate = require('../middleware/auth');
-const { loginLimiter } = require('../middleware/rateLimiter');
-const router = express.Router();
 
-// Register a new user
+// Register
 router.post('/register', async (req, res) => {
   try {
-    console.log('\n--- Registration Attempt ---');
-    console.log('Request body:', req.body);
-    
-    if (!req.body || !req.body.username || !req.body.email || !req.body.password) {
-      console.log('Missing required fields:', req.body);
-      return res.status(400).json({
-        error: 'Missing required fields. Please provide username, email, and password.'
-      });
+    console.log('Registration request received:', req.body);
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
     }
 
-    const { username, email, password } = req.body;
-    
-    // Check if user already exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
-    });
-    
-    if (existingUser) {
-      console.log('User already exists:', { email, username });
-      return res.status(400).json({ 
-        error: 'Email or username already in use' 
-      });
+    // Check if user exists
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ error: 'User already exists' });
     }
-    
+
     // Create new user
-    console.log('Creating new user:', { username, email });
-    const user = new User({ username, email, password });
-    
-    try {
-      await user.save();
-      console.log('User saved successfully');
-      
-      // Return success but don't include password
-      const userObj = user.toObject();
-      delete userObj.password;
-      
-      res.status(201).json({ 
-        message: 'User registered successfully', 
-        user: userObj 
-      });
-    } catch (saveError) {
-      console.error('Error saving user:', saveError);
-      if (saveError.name === 'ValidationError') {
-        return res.status(400).json({ 
-          error: 'Validation error', 
-          details: Object.values(saveError.errors).map(err => err.message)
-        });
-      }
-      throw saveError;
-    }
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ 
-      error: 'Registration failed', 
-      details: error.message 
+    user = new User({
+      name,
+      email,
+      password
     });
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+
+    // Save user
+    console.log('Attempting to save user to MongoDB...');
+    await user.save();
+    console.log('User saved successfully, MongoDB _id:', user._id);
+
+    // Create token
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    console.log('Sending success response with token');
+    res.json({ token });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-// Login user
-router.post('/login', loginLimiter, async (req, res) => {
+// Login
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
-    // Find user by email
+
+    // Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(400).json({ error: 'Invalid credentials' });
     }
-    
+
     // Check password
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(400).json({ error: 'Invalid credentials' });
     }
-    
-    // Create JWT token
+
+    // Create token
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
+      { userId: user._id, name: user.name },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '1d' }
     );
-    
-    // Send token and user data
-    const userObj = user.toObject();
-    delete userObj.password;
-    
-    res.status(200).json({
-      message: 'Login successful',
+
+    res.json({ 
       token,
-      user: userObj
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      error: 'Login failed', 
-      details: error.message 
-    });
-  }
-});
-
-// Get user profile
-router.get('/profile', authenticate, async (req, res) => {
-  try {
-    const user = await User.findById(req.userData.userId).select('-password');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.status(200).json({ user });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Update user profile
-router.put('/profile', authenticate, async (req, res) => {
-  try {
-    const { username, email } = req.body;
-    
-    // Check if username or email is already in use by another user
-    if (username || email) {
-      const existingUser = await User.findOne({
-        $and: [
-          { _id: { $ne: req.userData.userId } },
-          { $or: [
-            { username: username || null },
-            { email: email || null }
-          ]}
-        ]
-      });
-      
-      if (existingUser) {
-        return res.status(400).json({ error: 'Username or email already in use' });
+      user: {
+        _id: user._id,
+        username: user.name, // map name to username for AuthContext
+        email: user.email
       }
-    }
-    
-    // Update user
-    const updatedUser = await User.findByIdAndUpdate(
-      req.userData.userId,
-      { $set: { username, email } },
-      { new: true, runValidators: true }
-    ).select('-password');
-    
-    if (!updatedUser) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    res.status(200).json({ 
-      message: 'Profile updated successfully', 
-      user: updatedUser 
     });
-  } catch (error) {
-    res.status(500).json({ 
-      error: 'Profile update failed', 
-      details: error.message 
-    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

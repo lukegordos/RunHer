@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, AtSign, Lock, Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { login } from "@/services/auth";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -12,6 +14,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const auth = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,19 +30,30 @@ const Login = () => {
     
     setIsLoading(true);
     
-    // This is where you would normally handle authentication
-    // For now we'll just simulate a login process
-    
-    setTimeout(() => {
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
-      });
-      setIsLoading(false);
+    try {
+      const response = await login({ email, password });
       
-      // Redirect to profile page after login
-      navigate("/profile");
-    }, 1500);
+      if (response.token && response.user) {
+        auth?.login(response.token, response.user);
+        
+        toast({
+          title: "Welcome back!",
+          description: "You have successfully logged in.",
+        });
+        
+        // Redirect to profile page after login
+        navigate("/profile");
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "Invalid credentials",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -49,7 +63,7 @@ const Login = () => {
         <div className="animate-fade-in w-full max-w-md">
           <div className="text-center md:text-left">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
-              runHER
+              runher
             </h1>
             <p className="text-white/90 text-lg md:text-xl mb-8">
               Running empowers women. Sign in to join the community.

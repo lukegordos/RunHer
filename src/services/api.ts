@@ -1,69 +1,43 @@
 import axios from 'axios';
 
-// Create axios instance with default config
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   headers: {
-    'Content-Type': 'application/json'
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
   },
-  timeout: 5000  // 5 second timeout
+  withCredentials: true // Changed to true to match backend CORS settings
 });
 
-// Add a request interceptor
+// Add a request interceptor for debugging
 api.interceptors.request.use(
   (config) => {
-    // Log request details
-    console.log('Request:', {
-      url: config.url,
+    console.log('API Request:', {
       method: config.method,
-      data: config.data
+      url: config.url,
+      data: config.data,
+      headers: config.headers
     });
-    
-    // Add auth token if available
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
     return config;
   },
   (error) => {
-    console.error('Request error:', error);
+    console.error('API Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Add response interceptor
+// Add a response interceptor for debugging
 api.interceptors.response.use(
   (response) => {
-    // Log successful response
-    console.log('Response:', {
+    console.log('API Response:', {
       status: response.status,
       data: response.data
     });
     return response;
   },
   (error) => {
-    // Log error details
-    console.error('Response error:', {
-      message: error.message,
-      response: error.response?.data
-    });
-
-    // Handle specific error cases
-    if (error.code === 'ERR_NETWORK') {
-      throw new Error('Cannot connect to server. Please check if the backend is running.');
-    }
-
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
-    
-    throw new Error(
-      error.response?.data?.error ||
-      error.message ||
-      'An unexpected error occurred'
-    );
+    console.error('API Error:', error);
+    return Promise.reject(error);
   }
 );
 

@@ -103,8 +103,8 @@ const Index = () => {
             <div className="flex-1 relative max-w-md lg:max-w-none animate-fade-in" style={{ animationDelay: "0.2s" }}>
               <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-xl">
                 <img
-                  src="/images/runherLogo.png?v=1"
-                  alt="runher Logo"
+                  src="/images/runherLogo.png"
+                  alt="RunHER Logo"
                   className="w-full h-full object-contain bg-white"
                 />
               </div>

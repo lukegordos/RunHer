@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,15 +12,80 @@ import {
   Camera,
   Save,
   X,
-  Upload
+  Upload,
+  Activity
 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import AppLayout from "@/components/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { stravaService } from "@/services/stravaService";
+import { useLocation } from "react-router-dom";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const location = useLocation();
+  const [stravaProfile, setStravaProfile] = useState<any>(null);
+  const [stravaConnected, setStravaConnected] = useState(false);
+  
+  useEffect(() => {
+    // Check for Strava auth callback
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    if (code) {
+      handleStravaCallback(code);
+    }
+
+    // Check for existing Strava connection
+    const storedTokens = localStorage.getItem('stravaTokens');
+    if (storedTokens) {
+      const tokens = JSON.parse(storedTokens);
+      stravaService.getAthleteProfile(tokens.accessToken)
+        .then(profile => {
+          setStravaProfile(profile);
+          setStravaConnected(true);
+        })
+        .catch(() => {
+          localStorage.removeItem('stravaTokens');
+        });
+    }
+  }, [location]);
+
+  const handleStravaCallback = async (code: string) => {
+    try {
+      const tokens = await stravaService.exchangeToken(code);
+      localStorage.setItem('stravaTokens', JSON.stringify(tokens));
+      const profile = await stravaService.getAthleteProfile(tokens.accessToken);
+      setStravaProfile(profile);
+      setStravaConnected(true);
+      toast({
+        title: "Success!",
+        description: "Your Strava account has been connected.",
+      });
+    } catch (error) {
+      console.error('Error connecting Strava:', error);
+      toast({
+        title: "Error",
+        description: "Failed to connect your Strava account.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const connectStrava = () => {
+    window.location.href = stravaService.getAuthUrl();
+  };
+
+  const disconnectStrava = () => {
+    localStorage.removeItem('stravaTokens');
+    setStravaProfile(null);
+    setStravaConnected(false);
+    toast({
+      title: "Disconnected",
+      description: "Your Strava account has been disconnected.",
+    });
+  };
+
   const [profileData, setProfileData] = useState({
     name: "Sarah Johnson",
     location: "Portland, OR",
@@ -29,7 +94,8 @@ const Profile = () => {
     preferredTime: "Mornings",
     averagePace: "8:30 min/mile",
     weeklyMiles: "25 miles",
-    goals: "Training for Portland Marathon"
+    goals: "Training for Portland Marathon",
+    strava: "https://www.strava.com/athletes/159964757"
   });
   
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -260,21 +326,71 @@ const Profile = () => {
               )}
             </div>
 
+            {/* Strava Integration */}
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="font-semibold text-lg mb-4">Recent Activities</h2>
-              <div className="space-y-4">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="flex items-center p-3 rounded-lg bg-secondary">
-                    <div className="w-12 h-12 rounded-md bg-runher/10 flex items-center justify-center mr-4">
-                      <Calendar className="w-6 h-6 text-runher" />
-                    </div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-[#FC4C02]" />
+                  <h2 className="font-semibold text-lg">Strava Profile</h2>
+                </div>
+                {stravaConnected ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={disconnectStrava}
+                  >
+                    Disconnect Strava
+                  </Button>
+                ) : (
+                  <Button
+                    className="bg-[#FC4C02] hover:bg-[#FC4C02]/90 text-white"
+                    size="sm"
+                    onClick={connectStrava}
+                  >
+                    Connect with Strava
+                  </Button>
+                )}
+              </div>
+
+              {stravaProfile ? (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    {stravaProfile.profile_medium && (
+                      <img
+                        src={stravaProfile.profile_medium}
+                        alt="Strava profile"
+                        className="w-12 h-12 rounded-full"
+                      />
+                    )}
                     <div>
-                      <h3 className="font-medium">{`Morning Run ${i}`}</h3>
-                      <p className="text-sm text-muted-foreground">5.2 miles • 43:12 • 2 days ago</p>
+                      <p className="font-medium">{stravaProfile.firstname} {stravaProfile.lastname}</p>
+                      <p className="text-sm text-muted-foreground">{stravaProfile.city}, {stravaProfile.state}</p>
                     </div>
                   </div>
-                ))}
-              </div>
+                  {stravaProfile.stats && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-3 rounded-md bg-secondary">
+                        <p className="text-sm text-muted-foreground">Recent Runs</p>
+                        <p className="text-lg font-medium">{stravaProfile.stats.recent_run_totals.count}</p>
+                      </div>
+                      <div className="p-3 rounded-md bg-secondary">
+                        <p className="text-sm text-muted-foreground">Recent Distance</p>
+                        <p className="text-lg font-medium">
+                          {(stravaProfile.stats.recent_run_totals.distance / 1000).toFixed(1)}km
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : stravaConnected ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading Strava profile...
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  Connect your Strava account to see your running stats and activities.
+                </div>
+              )}
             </div>
           </div>
         </div>

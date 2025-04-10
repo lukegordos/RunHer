@@ -104,7 +104,7 @@ const Index = () => {
               <div className="aspect-[4/3] rounded-2xl overflow-hidden shadow-xl">
                 <img
                   src="/images/runherLogo.png"
-                  alt="RunHER Logo"
+                  alt="runher Logo"
                   className="w-full h-full object-contain bg-white"
                 />
               </div>

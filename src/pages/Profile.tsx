@@ -1,5 +1,5 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,12 +17,24 @@ import {
 import { toast } from "@/components/ui/use-toast";
 import AppLayout from "@/components/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const auth = useAuth();
+  
+  useEffect(() => {
+    if (auth?.user?.username) {
+      setProfileData(prev => ({
+        ...prev,
+        name: auth.user.username
+      }));
+    }
+  }, [auth?.user]);
+
   const [profileData, setProfileData] = useState({
-    name: "Sarah Johnson",
+    name: auth?.user?.username || "",
     location: "Portland, OR",
     bio: "Marathon runner and trail enthusiast. Looking for morning running partners!",
     experience: "Intermediate",

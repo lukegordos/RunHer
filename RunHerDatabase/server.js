@@ -13,11 +13,14 @@ app.use(express.urlencoded({ extended: true }));
 
 // Configure CORS - IMPORTANT: This must come before routes
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:8080',
+  origin: true, // Allow all origins in development
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
 }));
+
+// Add OPTIONS handling for preflight requests
+app.options('*', cors());
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -60,10 +63,28 @@ async function connectToMongoDB() {
     
     console.log('Connecting to MongoDB...');
     console.log('MongoDB URI:', process.env.MONGODB_URI);
-    await mongoose.connect(process.env.MONGODB_URI, {
+    const options = {
       useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      family: 4
+    };
+
+    console.log('Attempting to connect with options:', options);
+    
+    try {
+      await mongoose.connect(process.env.MONGODB_URI, options);
+      console.log('MongoDB connection successful');
+    } catch (error) {
+      console.error('MongoDB connection error details:', {
+        name: error.name,
+        message: error.message,
+        code: error.code,
+        codeName: error.codeName
+      });
+      throw error;
+    }
     
     // Test the connection by listing collections
     const collections = await mongoose.connection.db.listCollections().toArray();

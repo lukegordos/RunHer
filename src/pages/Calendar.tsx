@@ -220,22 +220,21 @@ const Calendar = () => {
                             />
                           </div>
                           <div>
-                            <label className="text-sm font-medium mb-1 block">Distance</label>
-                            <Select 
-                              value={newEvent.distance}
-                              onValueChange={(distance) => setNewEvent({...newEvent, distance})}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select distance" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="5K">5K</SelectItem>
-                                <SelectItem value="10K">10K</SelectItem>
-                                <SelectItem value="Half Marathon">Half Marathon</SelectItem>
-                                <SelectItem value="Marathon">Marathon</SelectItem>
-                                <SelectItem value="Custom">Custom</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <label className="text-sm font-medium mb-1 block">Distance (miles)</label>
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                value={newEvent.distance}
+                                onChange={(e) => setNewEvent({...newEvent, distance: e.target.value})}
+                                placeholder="Enter distance"
+                                className="pr-12"
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                                mi
+                              </span>
+                            </div>
                           </div>
                           <div>
                             <label className="text-sm font-medium mb-1 block">Duration</label>

@@ -21,6 +21,18 @@ export interface NewsResponse {
   articles: NewsArticle[];
 }
 
+export interface NewsSafetyAnalysis {
+  score: number;                   // 0-1 scale where 1 is most concerning
+  relevantArticles: NewsArticle[]; // Articles that influenced the score
+  keywordMatches: {               // Keywords found in the articles
+    keyword: string;
+    count: number;
+    articles: string[];           // Article titles containing this keyword
+  }[];
+  recentEvents: string[];         // Summary of recent safety events from news
+  predictionConfidence: number;   // 0-1 scale of confidence in the prediction
+}
+
 // Keywords that might indicate safety concerns in news articles
 const safetyKeywords = [
   'crime', 'assault', 'robbery', 'theft', 'shooting', 'violence',
@@ -28,6 +40,34 @@ const safetyKeywords = [
   'protest', 'riot', 'demonstration', 'police', 'emergency', 'incident',
   'danger', 'warning', 'alert', 'unsafe', 'suspicious', 'investigation'
 ];
+
+// Severity weights for different keywords (higher = more severe safety concern)
+const keywordSeverity: Record<string, number> = {
+  'murder': 1.0,
+  'homicide': 1.0,
+  'shooting': 0.9,
+  'stabbing': 0.9,
+  'assault': 0.8,
+  'attack': 0.8,
+  'violence': 0.8,
+  'carjacking': 0.7,
+  'robbery': 0.7,
+  'burglary': 0.6,
+  'theft': 0.5,
+  'crime': 0.5,
+  'danger': 0.5,
+  'warning': 0.4,
+  'alert': 0.4,
+  'police': 0.3,
+  'emergency': 0.3,
+  'incident': 0.3,
+  'protest': 0.3,
+  'riot': 0.3,
+  'demonstration': 0.2,
+  'investigation': 0.2,
+  'unsafe': 0.4,
+  'suspicious': 0.3
+};
 
 // Function to fetch news data for a specific location
 export const fetchNewsForLocation = async (
@@ -145,51 +185,172 @@ const deg2rad = (deg: number): number => {
   return deg * (Math.PI/180);
 };
 
-// Analyze news articles for safety concerns
-export const analyzeNewsForSafety = (articles: NewsArticle[]): number => {
-  if (articles.length === 0) return 0;
+// Analyze news articles for safety concerns with detailed breakdown
+export const analyzeNewsForSafety = (articles: NewsArticle[]): NewsSafetyAnalysis => {
+  if (articles.length === 0) {
+    return {
+      score: 0,
+      relevantArticles: [],
+      keywordMatches: [],
+      recentEvents: [],
+      predictionConfidence: 0
+    };
+  }
   
   let safetyScore = 0;
-  let relevantArticles = 0;
+  let relevantArticles: NewsArticle[] = [];
+  let keywordMatchMap: Record<string, {count: number, articles: string[]}> = {};
   
   // Analyze each article for safety keywords
   articles.forEach(article => {
     // Combine title and description for analysis
     const content = `${article.title} ${article.description || ''}`.toLowerCase();
     
-    // Count how many safety keywords appear in the article
-    const keywordMatches = safetyKeywords.filter(keyword => 
+    // Find all safety keywords in the article
+    const matchedKeywords = safetyKeywords.filter(keyword => 
       content.includes(keyword.toLowerCase())
     );
     
-    if (keywordMatches.length > 0) {
+    if (matchedKeywords.length > 0) {
       // This article is relevant to safety
-      relevantArticles++;
+      relevantArticles.push(article);
       
-      // Calculate impact based on number of keywords and recency
-      const keywordImpact = keywordMatches.length / safetyKeywords.length;
+      // Calculate impact based on keyword severity and recency
+      let articleImpact = 0;
+      
+      matchedKeywords.forEach(keyword => {
+        // Update keyword match count
+        if (!keywordMatchMap[keyword]) {
+          keywordMatchMap[keyword] = { count: 0, articles: [] };
+        }
+        keywordMatchMap[keyword].count += 1;
+        keywordMatchMap[keyword].articles.push(article.title);
+        
+        // Add severity impact of this keyword
+        const severityImpact = keywordSeverity[keyword] || 0.3; // Default to 0.3 if not specified
+        articleImpact += severityImpact;
+      });
+      
+      // Normalize article impact based on number of keywords
+      articleImpact = articleImpact / matchedKeywords.length;
       
       // More recent articles have higher impact
       const daysAgo = (new Date().getTime() - new Date(article.publishedAt).getTime()) / (1000 * 3600 * 24);
       const recencyFactor = Math.max(0, 1 - (daysAgo / 14)); // 0-1 scale, newer is higher
       
       // Add to safety score (higher means more safety concerns)
-      safetyScore += keywordImpact * recencyFactor;
+      safetyScore += articleImpact * recencyFactor;
     }
   });
   
   // Normalize score based on number of relevant articles
-  if (relevantArticles > 0) {
-    // Scale from 0-1, where 0 is safest (no concerning news) and 1 is least safe
-    return Math.min(1, safetyScore / relevantArticles);
-  }
+  const normalizedScore = relevantArticles.length > 0 
+    ? Math.min(1, safetyScore / relevantArticles.length) 
+    : 0;
   
-  return 0; // No relevant articles found
+  // Format keyword matches for the response
+  const keywordMatches = Object.entries(keywordMatchMap)
+    .map(([keyword, data]) => ({
+      keyword,
+      count: data.count,
+      articles: data.articles
+    }))
+    .sort((a, b) => b.count - a.count); // Sort by frequency
+  
+  // Generate summary of recent safety events
+  const recentEvents = generateSafetyEventSummaries(relevantArticles, keywordMatches);
+  
+  // Calculate prediction confidence based on number of articles and keyword diversity
+  const predictionConfidence = calculatePredictionConfidence(
+    relevantArticles.length,
+    keywordMatches.length,
+    articles.length
+  );
+  
+  return {
+    score: normalizedScore,
+    relevantArticles,
+    keywordMatches,
+    recentEvents,
+    predictionConfidence
+  };
+};
+
+// Generate summaries of safety events from news articles
+const generateSafetyEventSummaries = (
+  articles: NewsArticle[],
+  keywordMatches: {keyword: string, count: number, articles: string[]}[]
+): string[] => {
+  if (articles.length === 0) return [];
+  
+  // Sort articles by date (newest first)
+  const sortedArticles = [...articles].sort((a, b) => 
+    new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+  );
+  
+  // Take up to 5 most recent relevant articles
+  const recentArticles = sortedArticles.slice(0, 5);
+  
+  // Generate a summary for each recent article
+  return recentArticles.map(article => {
+    const date = new Date(article.publishedAt).toLocaleDateString();
+    return `${date}: ${article.title}`;
+  });
+};
+
+// Calculate confidence in the prediction based on data quality
+const calculatePredictionConfidence = (
+  relevantArticleCount: number,
+  keywordMatchCount: number,
+  totalArticleCount: number
+): number => {
+  if (totalArticleCount === 0) return 0;
+  
+  // More relevant articles and keyword diversity increase confidence
+  const relevanceRatio = relevantArticleCount / Math.max(1, totalArticleCount);
+  const keywordDiversity = keywordMatchCount / safetyKeywords.length;
+  
+  // Calculate confidence score (0-1)
+  return Math.min(1, (relevanceRatio * 0.5) + (keywordDiversity * 0.5));
 };
 
 // Calculate predictive safety adjustment based on news data
-export const calculateNewsSafetyAdjustment = (newsImpact: number): number => {
+export const calculateNewsSafetyAdjustment = (newsAnalysis: NewsSafetyAnalysis): {
+  adjustment: number;
+  confidence: number;
+  reasons: string[];
+} => {
+  // No adjustment if no relevant news
+  if (newsAnalysis.score === 0) {
+    return {
+      adjustment: 0,
+      confidence: 0,
+      reasons: []
+    };
+  }
+  
   // Convert news impact (0-1 scale where 1 is bad) to safety adjustment (-1 to 0 scale)
   // This will be added to the existing safety score
-  return -Math.min(1, newsImpact * 1.5);
+  const adjustment = -Math.min(1, newsAnalysis.score * 1.5);
+  
+  // Generate reasons for the adjustment
+  const reasons: string[] = [];
+  
+  // Add top keywords as reasons
+  const topKeywords = newsAnalysis.keywordMatches.slice(0, 3);
+  if (topKeywords.length > 0) {
+    const keywordsList = topKeywords.map(k => k.keyword).join(', ');
+    reasons.push(`Recent news mentions ${keywordsList}`);
+  }
+  
+  // Add recency as a reason if we have recent events
+  if (newsAnalysis.recentEvents.length > 0) {
+    reasons.push(`${newsAnalysis.recentEvents.length} safety-related news stories in the past 14 days`);
+  }
+  
+  return {
+    adjustment,
+    confidence: newsAnalysis.predictionConfidence,
+    reasons
+  };
 };

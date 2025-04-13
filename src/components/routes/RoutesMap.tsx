@@ -1,10 +1,18 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import MapComponent from './MapComponent';
-import { fetchCrimeData, CrimeData, calculateSafetyScore } from '@/services/crimeDataService';
+import { fetchCrimeData, CrimeData, calculateSafetyScore, SafetyScoreDetails } from '@/services/crimeDataService';
 import { Button } from '@/components/ui/button';
-import { EyeIcon, EyeOffIcon, NewspaperIcon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, NewspaperIcon, AlertTriangleIcon, InfoIcon, TrendingDownIcon, TrendingUpIcon, MinusIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface RoutesMapProps {
   routes?: {
@@ -24,7 +32,7 @@ const RoutesMap = ({ routes = [], height, className }: RoutesMapProps) => {
   const [crimeData, setCrimeData] = useState<CrimeData[]>([]);
   const [showCrimeData, setShowCrimeData] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [safetyScore, setSafetyScore] = useState<{score: number, newsAdjusted: boolean} | null>(null);
+  const [safetyScore, setSafetyScore] = useState<SafetyScoreDetails | null>(null);
 
   // Memoize the fetch function to prevent unnecessary re-creation
   const fetchCrimeDataForLocation = useCallback(async () => {
@@ -58,6 +66,27 @@ const RoutesMap = ({ routes = [], height, className }: RoutesMapProps) => {
   const handleToggleCrimeData = useCallback(() => {
     setShowCrimeData(prev => !prev);
   }, []);
+
+  // Get safety score color based on the score value
+  const getSafetyScoreColor = (score: number) => {
+    if (score >= 4.5) return 'bg-green-100 text-green-800';
+    if (score >= 3.5) return 'bg-lime-100 text-lime-800';
+    if (score >= 2.5) return 'bg-yellow-100 text-yellow-800';
+    if (score >= 1.5) return 'bg-orange-100 text-orange-800';
+    return 'bg-red-100 text-red-800';
+  };
+
+  // Get trend icon based on trend direction
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'improving':
+        return <TrendingUpIcon className="w-3 h-3 text-green-600" />;
+      case 'worsening':
+        return <TrendingDownIcon className="w-3 h-3 text-red-600" />;
+      default:
+        return <MinusIcon className="w-3 h-3 text-gray-600" />;
+    }
+  };
 
   // Memoize MapComponent props to prevent unnecessary re-renders
   const mapProps = useMemo(() => ({
@@ -93,27 +122,124 @@ const RoutesMap = ({ routes = [], height, className }: RoutesMapProps) => {
         </Button>
         
         {safetyScore && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="bg-white rounded-md p-2 shadow flex items-center justify-between">
-                  <span className="font-medium">Safety Score: {safetyScore.score.toFixed(1)}/5</span>
-                  {safetyScore.newsAdjusted && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <div className={`rounded-md p-2 shadow flex items-center justify-between cursor-pointer ${getSafetyScoreColor(safetyScore.score)}`}>
+                <span className="font-medium">Safety Score: {safetyScore.score.toFixed(1)}/5</span>
+                <div className="flex items-center gap-1">
+                  {safetyScore.newsFactors && (
                     <Badge variant="outline" className="ml-2 bg-blue-50">
                       <NewspaperIcon className="w-3 h-3 mr-1" />
                       News
                     </Badge>
                   )}
+                  {getTrendIcon(safetyScore.predictionDetails.trendDirection)}
+                  <InfoIcon className="w-4 h-4 ml-1 text-gray-600" />
                 </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Safety score based on crime data {safetyScore.newsAdjusted ? 'and recent news' : ''}</p>
-                {safetyScore.newsAdjusted && (
-                  <p className="text-xs mt-1">Includes predictive analysis from news in the past 14 days</p>
+              </div>
+            </DialogTrigger>
+            <DialogContent className="max-w-md z-[2000]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <AlertTriangleIcon className="w-5 h-5" />
+                  Safety Analysis
+                </DialogTitle>
+                <DialogDescription>
+                  Detailed safety information for this area
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-4 mt-4">
+                {/* Safety Score Summary */}
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">Overall Safety Score:</span>
+                  <Badge className={`text-lg px-3 py-1 ${getSafetyScoreColor(safetyScore.score)}`}>
+                    {safetyScore.score.toFixed(1)}/5
+                  </Badge>
+                </div>
+                
+                {/* Explanation */}
+                <div className="bg-gray-50 p-3 rounded-md text-sm">
+                  {safetyScore.predictionDetails.explanation}
+                </div>
+                
+                {/* Crime Factors */}
+                <div className="space-y-2">
+                  <h4 className="font-medium">Crime Data Analysis</h4>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-red-50 p-2 rounded-md">
+                      <div className="text-red-600 font-bold">{safetyScore.crimeFactors.severityCounts.high}</div>
+                      <div className="text-xs">High Severity</div>
+                    </div>
+                    <div className="bg-orange-50 p-2 rounded-md">
+                      <div className="text-orange-600 font-bold">{safetyScore.crimeFactors.severityCounts.medium}</div>
+                      <div className="text-xs">Medium Severity</div>
+                    </div>
+                    <div className="bg-yellow-50 p-2 rounded-md">
+                      <div className="text-yellow-600 font-bold">{safetyScore.crimeFactors.severityCounts.low}</div>
+                      <div className="text-xs">Low Severity</div>
+                    </div>
+                  </div>
+                  
+                  {safetyScore.crimeFactors.recentCrimes.length > 0 && (
+                    <div className="mt-2">
+                      <h5 className="text-sm font-medium mb-1">Recent Incidents:</h5>
+                      <ul className="text-xs space-y-1 bg-gray-50 p-2 rounded-md">
+                        {safetyScore.crimeFactors.recentCrimes.map((crime, index) => (
+                          <li key={index} className="list-disc ml-4">{crime}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+                
+                {/* News Factors */}
+                {safetyScore.newsFactors && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium flex items-center">
+                      <NewspaperIcon className="w-4 h-4 mr-1" />
+                      News-Based Prediction
+                    </h4>
+                    
+                    <div className="bg-blue-50 p-3 rounded-md text-sm">
+                      <div className="flex justify-between items-center mb-2">
+                        <span>Prediction Confidence:</span>
+                        <Badge variant="outline" className="bg-white">
+                          {Math.round(safetyScore.newsFactors.confidence * 100)}%
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <h5 className="text-xs font-medium">Why this prediction:</h5>
+                        <ul className="text-xs space-y-1">
+                          {safetyScore.newsFactors.reasons.map((reason, index) => (
+                            <li key={index} className="list-disc ml-4">{reason}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      {safetyScore.newsFactors.recentEvents.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <h5 className="text-xs font-medium">Recent News Events:</h5>
+                          <ul className="text-xs space-y-1">
+                            {safetyScore.newsFactors.recentEvents.map((event, index) => (
+                              <li key={index} className="list-disc ml-4">{event}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+                
+                {/* Data Sources */}
+                <div className="text-xs text-gray-500 mt-2">
+                  <p>Data sources: DC Crime Data API {safetyScore.newsFactors ? '+ NewsAPI' : ''}</p>
+                  <p>Last updated: {new Date().toLocaleString()}</p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
       

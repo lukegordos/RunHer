@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, AtSign, Lock, Eye, EyeOff, UserPlus, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { register } from "@/services/auth";
 
 const Register = () => {
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -37,19 +39,26 @@ const Register = () => {
     
     setIsLoading(true);
     
-    // This is where you would normally handle registration
-    // For now we'll just simulate a registration process
-    
-    setTimeout(() => {
+    try {
+      await register({ name, email, password });
+      
       toast({
         title: "Account created!",
-        description: "Your account has been successfully created.",
+        description: "Please log in with your new account.",
       });
-      setIsLoading(false);
       
-      // Redirect would happen here in a real implementation
-      // navigate("/login");
-    }, 1500);
+      // Redirect to login page
+      navigate("/login");
+    } catch (error) {
+      console.error('Registration error:', error);
+      toast({
+        title: "Registration failed",
+        description: error instanceof Error ? error.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

@@ -1,13 +1,19 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   },
   withCredentials: true // Changed to true to match backend CORS settings
 });
+
+// Add token from localStorage if it exists
+const token = localStorage.getItem('token');
+if (token) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
 
 // Add a request interceptor for debugging
 api.interceptors.request.use(
@@ -36,7 +42,11 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('API Error:', error);
+    console.error('API Error Response:', error.response ? {
+      status: error.response.status,
+      data: error.response.data,
+      headers: error.response.headers
+    } : 'No response from server');
     return Promise.reject(error);
   }
 );

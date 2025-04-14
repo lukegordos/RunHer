@@ -7,11 +7,6 @@ export default defineConfig({
   server: {
     port: 8080,
     strictPort: false,
-    open: {
-      app: {
-        name: 'chrome'
-      }
-    }
   },
   plugins: [react()],
   resolve: {

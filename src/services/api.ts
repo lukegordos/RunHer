@@ -6,7 +6,7 @@ const api = axios.create({
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   },
-  withCredentials: true // Changed to true to match backend CORS settings
+  withCredentials: false // Changed to false since we're using token-based auth
 });
 
 // Add token from localStorage if it exists
@@ -42,11 +42,17 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('API Error Response:', error.response ? {
-      status: error.response.status,
-      data: error.response.data,
-      headers: error.response.headers
-    } : 'No response from server');
+    if (error.response) {
+      console.error('API Error Response:', {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers
+      });
+    } else if (error.request) {
+      console.error('API No Response:', error.request);
+    } else {
+      console.error('API Error:', error.message);
+    }
     return Promise.reject(error);
   }
 );

@@ -17,7 +17,7 @@ console.log('Frontend URL for CORS:', frontendURL);
 
 // Configure CORS - IMPORTANT: This must come before routes
 app.use(cors({
-  origin: [frontendURL, 'http://localhost:8080', 'http://127.0.0.1:8080'], // Allow specific origins
+  origin: true, // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']

@@ -1,10 +1,8 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/components/ui/use-toast";
-import { MapPin, Navigation, RotateCcw } from "lucide-react";
+import { Navigation, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RunRoute } from "./RouteCard";
+import { PlacesAutocomplete } from "@/components/ui/places-autocomplete";
 
 interface RouteGenerateDialogProps {
   open: boolean;
@@ -37,6 +36,7 @@ const RouteGenerateDialog = ({
   const [preferredDistance, setPreferredDistance] = useState([3]); // miles
   const [startingLocation, setStartingLocation] = useState("");
   const [routeType, setRouteType] = useState("loop");
+  const [selectedLocation, setSelectedLocation] = useState<google.maps.places.PlaceResult | null>(null);
   
   // Sample images for generated routes
   const sampleImages = [
@@ -47,10 +47,10 @@ const RouteGenerateDialog = ({
   ];
   
   const generateRoutes = () => {
-    if (!startingLocation) {
+    if (!startingLocation || !selectedLocation) {
       toast({
         title: "Missing location",
-        description: "Please enter a starting location",
+        description: "Please select a valid starting location from the suggestions",
         variant: "destructive"
       });
       return;
@@ -118,15 +118,16 @@ const RouteGenerateDialog = ({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <label className="text-sm font-medium">Starting Location</label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Enter your starting point"
-                className="pl-10"
-                value={startingLocation}
-                onChange={(e) => setStartingLocation(e.target.value)}
-              />
-            </div>
+            <PlacesAutocomplete
+              value={startingLocation}
+              onChange={setStartingLocation}
+              onPlaceSelect={(place) => {
+                setSelectedLocation(place);
+                if (place.formatted_address) {
+                  setStartingLocation(place.formatted_address);
+                }
+              }}
+            />
           </div>
           
           <div className="space-y-2">

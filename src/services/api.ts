@@ -9,6 +9,7 @@ const api = axios.create({
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   },
+
   withCredentials: true,
   timeout: 30000, // 30 second timeout
   validateStatus: (status) => status >= 200 && status < 500, // Don't reject if status is 2xx/3xx/4xx
@@ -34,6 +35,7 @@ api.interceptors.response.use(undefined, async (err) => {
 
   console.log(`Retrying request (${config.currentRetryAttempt}/${config.retry}):`, config.url);
   return api(config);
+
 });
 
 // Add default retry configuration to all requests
@@ -159,11 +161,17 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('API Error Response:', error.response ? {
-      status: error.response.status,
-      data: error.response.data,
-      headers: error.response.headers
-    } : 'No response from server');
+    if (error.response) {
+      console.error('API Error Response:', {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers
+      });
+    } else if (error.request) {
+      console.error('API No Response:', error.request);
+    } else {
+      console.error('API Error:', error.message);
+    }
     return Promise.reject(error);
   }
 );

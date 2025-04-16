@@ -44,11 +44,13 @@ const Login = () => {
         // Redirect to profile page after login
         navigate("/profile");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      console.error('API Error Response:', error.response?.data);
+      console.error('Login error details:', error.message);
       toast({
         title: "Login failed",
-        description: error instanceof Error ? error.message : "Invalid credentials",
+        description: error.response?.data?.error || error.message || "Invalid credentials",
         variant: "destructive",
       });
     } finally {

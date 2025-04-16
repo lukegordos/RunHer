@@ -46,6 +46,9 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
     return response.data;
   } catch (error: any) {
     console.error('Login error details:', error.response?.data || error.message);
+    console.error('No response from server:', !error.response);
+    console.error('Network error:', error.code === 'ERR_NETWORK');
+    console.error('Full error:', error);
     throw error;
   }
 };

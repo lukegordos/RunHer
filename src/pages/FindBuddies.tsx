@@ -1,6 +1,6 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { searchUsers } from "@/services/users";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -10,15 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Users,
-  MapPin,
-  Calendar,
-  Clock,
-  Search,
-  UserPlus,
-  MessageCircle
-} from "lucide-react";
+import { Users, MapPin, Calendar, Clock, Search, UserPlus, MessageCircle } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import AppLayout from "@/components/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,6 +28,8 @@ type Runner = {
 };
 
 const FindBuddies = () => {
+  const [nameQuery, setNameQuery] = useState("");
+  const [loading, setLoading] = useState(false);
   const [searchParams, setSearchParams] = useState({
     location: "",
     experience: "",
@@ -44,6 +38,36 @@ const FindBuddies = () => {
     time: ""
   });
   
+  // Function to search users by name
+  const searchByName = async () => {
+    if (!nameQuery.trim()) return;
+    
+    setLoading(true);
+    try {
+      const results = await searchUsers(nameQuery);
+      const formattedResults: Runner[] = results.map(user => ({
+        id: user._id,
+        name: user.name,
+        location: 'Portland, OR', // Default values for display
+        experience: 'Intermediate',
+        pace: '9:00 min/mile',
+        preferredTime: 'Morning',
+        distance: 5.0,
+        compatibility: Math.floor(Math.random() * 30) + 70 // Random 70-100
+      }));
+      setRunners(formattedResults);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to search for runners. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const [runners, setRunners] = useState<Runner[]>([
     {
       id: "1",
@@ -52,7 +76,7 @@ const FindBuddies = () => {
       experience: "Intermediate",
       pace: "9:00 min/mile",
       preferredTime: "Morning",
-      distance: 3.2,
+      distance: 5.0,
       compatibility: 95,
     },
     {
@@ -121,19 +145,36 @@ const FindBuddies = () => {
             Find Running Buddies
           </h1>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div>
-              <label className="text-sm font-medium mb-1 block">Location</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Enter city or zip code"
-                  className="pl-10"
-                  value={searchParams.location}
-                  onChange={(e) => setSearchParams({...searchParams, location: e.target.value})}
-                />
-              </div>
+          <div className="space-y-4 mb-6">
+            {/* Name search */}
+            <div className="flex gap-4">
+              <Input
+                placeholder="Search by name..."
+                value={nameQuery}
+                onChange={(e) => setNameQuery(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && searchByName()}
+                className="flex-1"
+              />
+              <Button onClick={searchByName} disabled={loading}>
+                {loading ? 'Searching...' : 'Search'}
+              </Button>
             </div>
+
+            {/* Location and other filters */}
+            <div className="flex gap-4">
+              <Input
+                placeholder="Filter by location..."
+                value={searchParams.location}
+                onChange={(e) =>
+                  setSearchParams({ ...searchParams, location: e.target.value })
+                }
+                className="flex-1"
+              />
+              <Button onClick={() => console.log('Filter')}>Filter</Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div>
               <label className="text-sm font-medium mb-1 block">Experience Level</label>
               <Select 
@@ -220,10 +261,15 @@ const FindBuddies = () => {
                   </Avatar>
                   <div className="mt-2 text-center">
                     <div className="text-lg font-semibold">{runner.name}</div>
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <MapPin className="h-3 w-3 mr-1" />
-                      {runner.location}
-                    </div>
+                    {runner.email && (
+                      <div className="mb-2">{runner.email}</div>
+                    )}
+                    {runner.location && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        {runner.location}
+                      </div>
+                    )}
                   </div>
                   <div className="mt-2 bg-runher/10 text-runher font-medium rounded-full py-1 px-3 text-sm">
                     {runner.compatibility}% Match

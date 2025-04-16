@@ -15,21 +15,69 @@ app.use(express.urlencoded({ extended: true }));
 const frontendURL = process.env.FRONTEND_URL || 'http://localhost:8080';
 console.log('Frontend URL for CORS:', frontendURL);
 
-// Configure CORS - IMPORTANT: This must come before routes
-app.use(cors({
-  origin: [frontendURL, 'http://localhost:8080', 'http://127.0.0.1:8080'], // Allow specific origins
+// Configure CORS - Development configuration
+const corsOptions = {
+  origin: true, // Allow all origins in development
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  optionsSuccessStatus: 200,
+  preflightContinue: true
+};
+
+app.use(cors(corsOptions));
 
 // Add OPTIONS handling for preflight requests
-app.options('*', cors());
+app.options('*', cors(corsOptions));
+
+// Basic middleware for logging
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
+// Add error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  console.error('Stack trace:', err.stack);
+  
+  // Handle specific types of errors
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      error: 'Validation Error',
+      details: Object.values(err.errors).map(e => e.message)
+    });
+  }
+  
+  if (err.name === 'MongoError' || err.name === 'MongoServerError') {
+    if (err.code === 11000) {
+      return res.status(409).json({
+        error: 'Duplicate Error',
+        details: 'This record already exists'
+      });
+    }
+  }
+  
+  // Generic error response
+  res.status(500).json({
+    error: 'Internal Server Error',
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});
 
 // Health check route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+// Auth routes
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
+// Profile routes
+const profileRoutes = require('./routes/profile');
+app.use('/api/profile', profileRoutes);
 
 
 
@@ -80,6 +128,26 @@ async function connectToMongoDB() {
     try {
       await mongoose.connect(process.env.MONGODB_URI, options);
       console.log('MongoDB connection successful');
+
+      // Ensure collections exist
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      const collectionNames = collections.map(c => c.name);
+      console.log('Existing collections:', collectionNames);
+
+      // Create collections if they don't exist
+      if (!collectionNames.includes('runnerprofiles')) {
+        console.log('Creating runnerprofiles collection...');
+        await mongoose.connection.db.createCollection('runnerprofiles');
+        console.log('Created runnerprofiles collection');
+      }
+
+      // Create indexes
+      const RunnerProfile = require('./models/RunnerProfile');
+      await RunnerProfile.collection.createIndex({ user: 1 }, { unique: true });
+      await RunnerProfile.collection.createIndex({ location: '2dsphere' });
+      console.log('Indexes created for runnerprofiles collection');
+      console.log('Connected to MongoDB successfully');
+      return collections;
     } catch (error) {
       console.error('MongoDB connection error details:', {
         name: error.name,
@@ -89,10 +157,7 @@ async function connectToMongoDB() {
       });
       throw error;
     }
-    
-    // Test the connection by listing collections
-    const collections = await mongoose.connection.db.listCollections().toArray();
-    console.log('Connected to MongoDB successfully');
+    const collections = await connectToMongoDB();
     console.log('Available collections:', collections.map(c => c.name));
     
     // Test user creation
@@ -128,9 +193,6 @@ async function connectToMongoDB() {
   }
 }
 
-// Connect to MongoDB before starting the server
-connectToMongoDB();
-
 // Root route to show available endpoints
 app.get('/', (req, res) => {
   res.json({
@@ -139,7 +201,10 @@ app.get('/', (req, res) => {
       health: '/api/health',
       database: '/api/test-db',
       auth: '/api/auth/*',
-      social: '/api/social/*'
+      social: '/api/social/*',
+      runs: '/api/runs/*',
+      groups: '/api/groups/*',
+      groupRuns: '/api/group-runs/*'
     }
   });
 });
@@ -147,22 +212,60 @@ app.get('/', (req, res) => {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/social', require('./routes/social'));
+app.use('/api/runs', require('./routes/runs'));
+app.use('/api/groups', require('./routes/groups'));
+app.use('/api/group-runs', require('./routes/groupRuns'));
+app.use('/api/profile', require('./routes/profile'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('Stack trace:', err.stack);
+  
+  // Generic error response
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
-// Start server
+// Start server after MongoDB connects
 const PORT = process.env.PORT || 5000;
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Test the server: http://localhost:${PORT}/api/health`);
-});
 
-// Handle server errors
-server.on('error', (err) => {
-  console.error('Server error:', err);
-  process.exit(1);
-});
+// Connect to MongoDB then start server
+async function startServer() {
+  try {
+    await connectToMongoDB();
+    console.log('MongoDB connected successfully');
+
+    const server = app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Test the server: http://localhost:${PORT}/api/health`);
+    });
+
+    // Handle server errors
+    server.on('error', (err) => {
+      console.error('Server error:', err);
+      process.exit(1);
+    });
+
+    // Handle process termination
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received. Shutting down gracefully...');
+      server.close(() => {
+        console.log('Server closed');
+        mongoose.connection.close(false, () => {
+          console.log('MongoDB connection closed');
+          process.exit(0);
+        });
+      });
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+// Start the server
+startServer();

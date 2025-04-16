@@ -29,6 +29,25 @@ export function Header() {
           <Link to="/" className="flex items-center space-x-2">
             <span className="inline-block font-bold">runher</span>
           </Link>
+          {auth?.isAuthenticated && (
+            <nav className="hidden md:flex gap-6">
+              <Link to="/running-dashboard" className="text-sm font-medium hover:text-primary">
+                Running Dashboard
+              </Link>
+              <Link to="/log-run" className="text-sm font-medium hover:text-primary">
+                Log Run
+              </Link>
+              <Link to="/routes" className="text-sm font-medium hover:text-primary">
+                Routes
+              </Link>
+              <Link to="/buddies" className="text-sm font-medium hover:text-primary">
+                Find Buddies
+              </Link>
+              <Link to="/find-runners" className="text-sm font-medium hover:text-primary">
+                Find Runners
+              </Link>
+            </nav>
+          )}
         </div>
         
         <nav className="flex items-center space-x-4">
@@ -45,6 +64,12 @@ export function Header() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
                     <Link to="/profile">Profile</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/running-dashboard">Running Dashboard</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/log-run">Log Run</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => auth.logout()}>
                     Log out

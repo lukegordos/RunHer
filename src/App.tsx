@@ -15,6 +15,10 @@ import Calendar from "./pages/Calendar";
 import Messages from "./pages/Messages";
 import RunningRoutes from "./pages/Routes";
 import ReportHazard from "./pages/ReportHazard";
+import RunningDashboard from "./pages/RunningDashboard";
+import LogRun from "./pages/LogRun";
+import FindRunners from "./pages/FindRunners";
+import EditProfile from "./pages/EditProfile";
 
 const queryClient = new QueryClient();
 
@@ -30,11 +34,15 @@ const App = () => (
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/edit" element={<EditProfile />} />
           <Route path="/buddies" element={<FindBuddies />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/messages" element={<Messages />} />
           <Route path="/routes" element={<RunningRoutes />} />
           <Route path="/hazards" element={<ReportHazard />} />
+          <Route path="/running-dashboard" element={<RunningDashboard />} />
+          <Route path="/log-run" element={<LogRun />} />
+          <Route path="/find-runners" element={<FindRunners />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

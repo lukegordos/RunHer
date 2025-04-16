@@ -4,6 +4,17 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+// Temporary route to list users - REMOVE IN PRODUCTION
+router.get('/list-users', async (req, res) => {
+  try {
+    const users = await User.find({}).select('name email');
+    res.json(users);
+  } catch (err) {
+    console.error('Error listing users:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Register
 router.post('/register', async (req, res) => {
   try {
@@ -38,13 +49,13 @@ router.post('/register', async (req, res) => {
 
     // Create token
     const token = jwt.sign(
-      { userId: user._id },
+      { userId: user._id.toString() },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
-    console.log('Sending success response with token');
-    res.json({ token });
+    console.log('Sending success response with token and userId');
+    res.json({ token, userId: user._id.toString() });
   } catch (err) {
     console.error('Registration error details:', err);
     res.status(500).json({ error: 'Server error', message: err.message });
@@ -81,13 +92,17 @@ router.post('/login', async (req, res) => {
     console.log('Password matched, creating token');
     // Create token
     const token = jwt.sign(
-      { userId: user._id, name: user.name },
+      { userId: user._id.toString(), name: user.name },
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
 
     console.log('Login successful for user:', user._id);
     res.json({ 
+      token,
+      userId: user._id.toString(),
+      name: user.name,
+      email: user.email,
       token,
       user: {
         _id: user._id,

@@ -81,6 +81,9 @@ export function PlacesAutocomplete({
             (results, status) => {
               if (status === google.maps.places.PlacesServiceStatus.OK && results) {
                 resolve(results);
+              } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                // Handle zero results gracefully
+                resolve([]);
               } else {
                 reject(status);
               }
@@ -89,7 +92,7 @@ export function PlacesAutocomplete({
         });
 
         setPredictions(response);
-        setIsOpen(true);
+        setIsOpen(response.length > 0);
       }
     } catch (error) {
       console.error('Autocomplete error:', error);

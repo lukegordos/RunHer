@@ -8,10 +8,14 @@ const api = axios.create({
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
+    'Connection': 'keep-alive'
   },
   withCredentials: true,
-  timeout: 30000, // 30 second timeout
+  timeout: 60000, // 60 second timeout
   validateStatus: (status) => status >= 200 && status < 500, // Don't reject if status is 2xx/3xx/4xx
+  maxRetries: 3,
+  retryDelay: 1000,
+  keepAlive: true
 });
 
 // Add retry functionality

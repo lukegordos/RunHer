@@ -18,6 +18,8 @@ export type RunRoute = {
   imageUrl: string;
   isGenerated?: boolean;
   safetyRating?: number;
+  routeType?: "loop" | "out-and-back" | "point-to-point";
+  safetyPriority?: "high" | "medium" | "low";
 };
 
 const RouteCard = ({ route }: { route: RunRoute }) => {

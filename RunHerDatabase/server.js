@@ -15,6 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 const frontendURL = process.env.FRONTEND_URL || 'http://localhost:8080';
 console.log('Frontend URL for CORS:', frontendURL);
 
+
 // Configure CORS - Development configuration
 const corsOptions = {
   origin: true, // Allow all origins in development

@@ -54,8 +54,15 @@ router.post('/register', async (req, res) => {
       { expiresIn: '1d' }
     );
 
-    console.log('Sending success response with token and userId');
-    res.json({ token, userId: user._id.toString() });
+    console.log('Sending success response with token and user');
+    res.json({
+      token,
+      user: {
+        _id: user._id.toString(),
+        name: user.name,
+        email: user.email
+      }
+    });
   } catch (err) {
     console.error('Registration error details:', err);
     res.status(500).json({ error: 'Server error', message: err.message });
@@ -83,7 +90,12 @@ router.post('/login', async (req, res) => {
 
     console.log('User found, checking password');
     // Check password
+    console.log('Comparing passwords:', {
+      provided: password,
+      stored: user.password
+    });
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match result:', isMatch);
     if (!isMatch) {
       console.log('Login failed: Password does not match');
       return res.status(400).json({ error: 'Invalid credentials' });
@@ -98,16 +110,16 @@ router.post('/login', async (req, res) => {
     );
 
     console.log('Login successful for user:', user._id);
-    res.json({ 
-      token,
-      userId: user._id.toString(),
-      name: user.name,
-      email: user.email,
+    res.json({
       token,
       user: {
-        _id: user._id,
-        username: user.name, // map name to username for AuthContext
-        email: user.email
+        _id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        location: user.location,
+        experienceLevel: user.experienceLevel,
+        preferredTime: user.preferredTime,
+        pace: user.pace
       }
     });
   } catch (err) {

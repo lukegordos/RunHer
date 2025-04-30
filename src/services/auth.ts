@@ -40,7 +40,14 @@ export const login = async (data: LoginData): Promise<AuthResponse> => {
     
     // Store token in localStorage
     if (response.data.token) {
+      localStorage.setItem('token', response.data.token);
       api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+      console.log('Token stored and headers set:', {
+        token: response.data.token,
+        headers: api.defaults.headers.common
+      });
+    } else {
+      console.error('No token received in login response');
     }
     
     return response.data;

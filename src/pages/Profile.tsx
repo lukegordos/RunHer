@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,39 +28,119 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { stravaService } from "@/services/stravaService";
 import { useLocation } from "react-router-dom";
+import { RunnerProfile, updateProfile, getProfile } from "@/services/profile";
 
 const Profile = () => {
-  const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const auth = useAuth();
-  
-  useEffect(() => {
-    if (auth?.user?.username) {
-      setProfileData(prev => ({
-        ...prev,
-        name: auth.user.username
-      }));
-    }
-  }, [auth?.user]);
-
   const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
+
+  const defaultProfile = useCallback((): RunnerProfile => ({
+    name: auth?.user?.name || '',
+    email: auth?.user?.email || '',
+    experienceLevel: 'beginner',
+    averagePace: 0,
+    weeklyMileage: 0,
+    personalBests: {
+      mile: null,
+      fiveK: null,
+      tenK: null,
+      halfMarathon: null,
+      marathon: null
+    },
+    preferredRunningTime: 'morning',
+    location: {
+      type: 'Point',
+      coordinates: [0, 0]
+    },
+    bio: '',
+    goals: ''
+  }), [auth?.user?.name, auth?.user?.email]);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [locationInput, setLocationInput] = useState('');
+  const [profileData, setProfileData] = useState<RunnerProfile | null>(null);
   const [stravaProfile, setStravaProfile] = useState<any>(null);
   const [stravaConnected, setStravaConnected] = useState(false);
-  
+
+  // Load profile data first
   useEffect(() => {
-    // Check for Strava auth callback
-    const params = new URLSearchParams(location.search);
-    const code = params.get('code');
+    const loadProfile = async () => {
+      try {
+        setIsLoading(true);
+        const profile = await getProfile();
+        if (profile) {
+          setProfileData(profile);
+        } else {
+          setProfileData(defaultProfile());
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load profile data',
+          variant: 'destructive',
+        });
+        // If we can't load the profile, initialize with default data
+        setProfileData(defaultProfile());
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfile();
+  }, [defaultProfile]);
+
+  // Then sync with auth data if needed
+  useEffect(() => {
+    if (auth?.user?.name && profileData && !profileData.name) {
+      const updatedProfile: RunnerProfile = {
+        ...profileData,
+        name: auth.user.name,
+        email: auth.user.email || ''
+      };
+      setProfileData(updatedProfile);
+    }
+  }, [auth?.user?.name, auth?.user?.email]);
+
+  const handleStravaCallback = useCallback(async (code: string) => {
+    try {
+      const tokens = await stravaService.exchangeToken(code);
+      const profile = await stravaService.getProfile(tokens.accessToken);
+      setStravaProfile(profile);
+      setStravaConnected(true);
+      toast({
+        title: 'Success!',
+        description: 'Successfully connected to Strava',
+      });
+    } catch (error) {
+      console.error('Error connecting to Strava:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to connect to Strava',
+        variant: 'destructive',
+      });
+    }
+  }, [setStravaProfile, setStravaConnected]);
+
+  useEffect(() => {
+    const code = new URLSearchParams(location.search).get('code');
     if (code) {
       handleStravaCallback(code);
     }
+  }, [location, handleStravaCallback]);
 
+  const handleConnectStrava = () => {
+    window.location.href = stravaService.getAuthUrl();
+  };
+  
+  useEffect(() => {
     // Check for existing Strava connection
     const storedTokens = localStorage.getItem('stravaTokens');
     if (storedTokens) {
       const tokens = JSON.parse(storedTokens);
-      stravaService.getAthleteProfile(tokens.accessToken)
+      stravaService.getProfile(tokens.accessToken)
         .then(profile => {
           setStravaProfile(profile);
           setStravaConnected(true);
@@ -69,34 +149,9 @@ const Profile = () => {
           localStorage.removeItem('stravaTokens');
         });
     }
-  }, [location]);
+  }, [setStravaProfile, setStravaConnected]);
 
-  const handleStravaCallback = async (code: string) => {
-    try {
-      const tokens = await stravaService.exchangeToken(code);
-      localStorage.setItem('stravaTokens', JSON.stringify(tokens));
-      const profile = await stravaService.getAthleteProfile(tokens.accessToken);
-      setStravaProfile(profile);
-      setStravaConnected(true);
-      toast({
-        title: "Success!",
-        description: "Your Strava account has been connected.",
-      });
-    } catch (error) {
-      console.error('Error connecting Strava:', error);
-      toast({
-        title: "Error",
-        description: "Failed to connect your Strava account.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const connectStrava = () => {
-    window.location.href = stravaService.getAuthUrl();
-  };
-
-  const disconnectStrava = () => {
+  const handleDisconnectStrava = () => {
     localStorage.removeItem('stravaTokens');
     setStravaProfile(null);
     setStravaConnected(false);
@@ -106,31 +161,153 @@ const Profile = () => {
     });
   };
 
-  const [profileData, setProfileData] = useState({
-    name: auth?.user?.username || "",
-    location: "Portland, OR",
-    bio: "Marathon runner and trail enthusiast. Looking for morning running partners!",
-    experience: "Intermediate",
-    preferredTime: "Mornings",
-    averagePace: "8:30 min/mile",
-    weeklyMiles: "25 miles",
-    goals: "Training for Portland Marathon",
-    strava: "https://www.strava.com/athletes/159964757"
-  });
+
+
+
+
+
   
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setProfileData(prev => ({ ...prev, [name]: value }));
+    if (name === 'location') {
+      setLocationInput(value);
+      if (value) {
+        await updateLocation(value);
+      }
+      return;
+    }
+
+    setProfileData(prev => {
+      const currentProfile = prev || defaultProfile();
+      if (name.includes('.')) {
+        const [parent, child] = name.split('.');
+        return {
+          ...currentProfile,
+          [parent]: {
+            ...currentProfile[parent],
+            [child]: value === '' ? null : parseFloat(value)
+          }
+        };
+      } else if (name === 'averagePace' || name === 'weeklyMileage') {
+        // Convert empty string to 0, otherwise parse as float
+        const numericValue = value === '' ? 0 : parseFloat(value);
+        // Only update if it's a valid number
+        return {
+          ...currentProfile,
+          [name]: isNaN(numericValue) ? 0 : numericValue
+        };
+      } else {
+        return {
+          ...currentProfile,
+          [name]: value
+        };
+      }
+    });
   };
 
-  const handleSave = () => {
-    setIsEditing(false);
-    toast({
-      title: "Profile updated",
-      description: "Your profile changes have been saved.",
-    });
+  const handleSelectChange = async (name: string, value: string) => {
+    if (!profileData) return;
+    
+    try {
+      setIsLoading(true);
+      const updatedProfile = await updateProfile({
+        ...profileData,
+        [name]: value
+      });
+      setProfileData(updatedProfile);
+      toast({
+        title: "Profile updated",
+        description: "Your profile changes have been saved.",
+      });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save profile changes. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateLocation = async (location: string) => {
+    try {
+      const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${encodeURIComponent(location)}&key=${import.meta.env.VITE_OPENCAGE_API_KEY}`);
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        const { lat, lng } = result.geometry;
+        const components = result.components;
+        const city = components.city || components.town || components.village;
+        const state = components.state;
+
+        if (city && state) {
+          setLocationInput(`${city}, ${state}`);
+          const updatedLocation = {
+            type: 'Point' as const,
+            coordinates: [lng, lat] as [number, number]
+          };
+          setProfileData(prev => {
+            const currentProfile = prev || defaultProfile();
+            const updatedProfile: RunnerProfile = {
+              ...currentProfile,
+              location: updatedLocation
+            };
+            return updatedProfile;
+          });
+        } else {
+          setLocationInput(result.formatted);
+          const updatedLocation = {
+            type: 'Point' as const,
+            coordinates: [lng, lat] as [number, number]
+          };
+          setProfileData(prev => {
+            const currentProfile = prev || defaultProfile();
+            const updatedProfile: RunnerProfile = {
+              ...currentProfile,
+              location: updatedLocation
+            };
+            return updatedProfile;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error geocoding location:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update location. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      if (!profileData) {
+        throw new Error('No profile data to save');
+      }
+      setIsLoading(true);
+      const updatedProfile = await updateProfile(profileData);
+      setProfileData(updatedProfile);
+      setIsEditing(false);
+      toast({
+        title: "Profile updated",
+        description: "Your profile changes have been saved.",
+      });
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save profile changes. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const handlePhotoClick = () => {
@@ -160,13 +337,23 @@ const Profile = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="max-w-4xl mx-auto px-4 py-8 flex justify-center items-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-runher"></div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row gap-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Profile Image and Stats */}
-          <div className="w-full md:w-1/3 space-y-6">
-            <div className="bg-white rounded-xl shadow-sm p-6 text-center">
+          <div className="col-span-1">
+            <div className="bg-white rounded-xl shadow-lg p-6 text-center sticky top-24">
               <div className="flex flex-col items-center text-center space-y-6">
                 <div
                   className="w-32 h-32 mb-4 relative rounded-full overflow-hidden cursor-pointer border-2 border-transparent hover:border-primary transition-colors"
@@ -190,9 +377,9 @@ const Profile = () => {
                     </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-secondary">
-                      {profileData.name ? (
+                      {auth?.user?.name ? (
                         <div className="text-2xl font-semibold text-muted-foreground">
-                          {profileData.name.split(' ').map(n => n[0]).join('')}
+                          {auth?.user?.name.split(' ').map(n => n[0]).join('')}
                         </div>
                       ) : (
                         <User className="w-16 h-16 text-muted-foreground" />
@@ -214,12 +401,12 @@ const Profile = () => {
                 {isEditing ? (
                   <Input 
                     name="name"
-                    value={profileData.name} 
+                    value={auth?.user?.name || ''} 
                     onChange={handleChange}
                     className="text-center text-xl font-bold mb-2"
                   />
                 ) : (
-                  <h1 className="text-2xl font-bold">{profileData.name}</h1>
+                  <h1 className="text-2xl font-bold">{auth?.user?.name}</h1>
                 )}
 
                 <div className="text-muted-foreground text-sm space-y-4">
@@ -228,12 +415,12 @@ const Profile = () => {
                     {isEditing ? (
                       <Input
                         name="location"
-                        value={profileData.location}
+                        value={locationInput}
                         onChange={handleChange}
                         className="max-w-[200px]"
                       />
                     ) : (
-                      profileData.location
+                      locationInput
                     )}
                   </div>
 
@@ -245,42 +432,42 @@ const Profile = () => {
                         <span>Experience:</span>
                         {isEditing ? (
                           <Select
-                            name="experience"
-                            value={profileData.experience}
-                            onValueChange={(value) => handleChange({ target: { name: 'experience', value } } as any)}
+                            name="experienceLevel"
+                            value={profileData?.experienceLevel || 'beginner'}
+                            onValueChange={(value) => handleSelectChange('experienceLevel', value)}
                           >
                             <SelectTrigger className="w-[120px]">
                               <SelectValue placeholder="Select level" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Beginner">Beginner</SelectItem>
-                              <SelectItem value="Intermediate">Intermediate</SelectItem>
-                              <SelectItem value="Advanced">Advanced</SelectItem>
+                              <SelectItem value="beginner">Beginner</SelectItem>
+                              <SelectItem value="intermediate">Intermediate</SelectItem>
+                              <SelectItem value="advanced">Advanced</SelectItem>
                             </SelectContent>
                           </Select>
                         ) : (
-                          <span>{profileData.experience}</span>
+                          <span className="capitalize">{profileData?.experienceLevel || 'beginner'}</span>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
                         <span>Preferred Time:</span>
                         {isEditing ? (
                           <Select
-                            name="preferredTime"
-                            value={profileData.preferredTime}
-                            onValueChange={(value) => handleChange({ target: { name: 'preferredTime', value } } as any)}
+                            name="preferredRunningTime"
+                            value={profileData?.preferredRunningTime || 'morning'}
+                            onValueChange={(value) => handleSelectChange('preferredRunningTime', value)}
                           >
                             <SelectTrigger className="w-[120px]">
                               <SelectValue placeholder="Select time" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="Morning">Morning</SelectItem>
-                              <SelectItem value="Afternoon">Afternoon</SelectItem>
-                              <SelectItem value="Evening">Evening</SelectItem>
+                              <SelectItem value="morning">Morning</SelectItem>
+                              <SelectItem value="afternoon">Afternoon</SelectItem>
+                              <SelectItem value="evening">Evening</SelectItem>
                             </SelectContent>
                           </Select>
                         ) : (
-                          <span>{profileData.preferredTime}</span>
+                          <span className="capitalize">{profileData?.preferredRunningTime || 'morning'}</span>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
@@ -288,29 +475,35 @@ const Profile = () => {
                         {isEditing ? (
                           <Input
                             name="averagePace"
-                            value={profileData.averagePace}
+                            value={profileData?.averagePace || 0}
                             onChange={handleChange}
                             className="max-w-[120px]"
+                            type="number"
+                            step="0.1"
                           />
                         ) : (
-                          <span>{profileData.averagePace}</span>
+                          <span>{profileData?.averagePace || 0} min/mile</span>
                         )}
                       </div>
                       <div className="flex items-center justify-between">
                         <span>Weekly Miles:</span>
                         {isEditing ? (
                           <Input
-                            name="weeklyMiles"
-                            value={profileData.weeklyMiles}
+                            name="weeklyMileage"
+                            value={profileData?.weeklyMileage || 0}
                             onChange={handleChange}
                             className="max-w-[120px]"
+                            type="number"
+                            step="0.1"
                           />
                         ) : (
-                          <span>{profileData.weeklyMiles}</span>
+                          <span>{profileData?.weeklyMileage || 0} miles</span>
                         )}
                       </div>
                     </div>
                   </div>
+
+
                 </div>
 
                 {!isEditing ? (
@@ -335,37 +528,37 @@ const Profile = () => {
           </div>
 
           {/* Profile Details */}
-          <div className="w-full md:w-2/3 space-y-6">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="font-semibold text-lg mb-3">About Me</h2>
+          <div className="col-span-1 md:col-span-2 space-y-6">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="font-semibold text-xl mb-4">About Me</h2>
               {isEditing ? (
                 <Textarea 
                   name="bio"
-                  value={profileData.bio} 
+                  value={profileData?.bio || ''} 
                   onChange={handleChange}
                   className="min-h-28"
                 />
               ) : (
-                <p className="text-muted-foreground">{profileData.bio}</p>
+                <p className="text-muted-foreground">{profileData?.bio || 'No bio provided'}</p>
               )}
             </div>
             
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="font-semibold text-lg mb-3">Running Goals</h2>
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="font-semibold text-xl mb-4">Running Goals</h2>
               {isEditing ? (
                 <Textarea 
                   name="goals"
-                  value={profileData.goals} 
+                  value={profileData?.goals || ''} 
                   onChange={handleChange}
                   className="min-h-28"
                 />
               ) : (
-                <p className="text-muted-foreground">{profileData.goals}</p>
+                <p className="text-muted-foreground">{profileData?.goals || 'No goals set'}</p>
               )}
             </div>
 
             {/* Strava Integration */}
-            <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Activity className="h-5 w-5 text-[#FC4C02]" />
@@ -374,16 +567,16 @@ const Profile = () => {
                 {stravaConnected ? (
                   <Button
                     variant="outline"
-                    size="sm"
-                    onClick={disconnectStrava}
+                    onClick={handleDisconnectStrava}
+                    className="w-full"
                   >
                     Disconnect Strava
                   </Button>
                 ) : (
                   <Button
-                    className="bg-[#FC4C02] hover:bg-[#FC4C02]/90 text-white"
-                    size="sm"
-                    onClick={connectStrava}
+                    variant="outline"
+                    onClick={handleConnectStrava}
+                    className="w-full"
                   >
                     Connect with Strava
                   </Button>
@@ -422,11 +615,11 @@ const Profile = () => {
                 </div>
               ) : stravaConnected ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  Loading Strava profile...
+                  LOADING Strava Profile...
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  Connect your Strava account to see your running stats and activities.
+                  Connect Your Strava Account To See Your Running Stats And Activities.
                 </div>
               )}
             </div>

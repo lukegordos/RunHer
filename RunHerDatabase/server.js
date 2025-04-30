@@ -15,15 +15,13 @@ app.use(express.urlencoded({ extended: true }));
 const frontendURL = process.env.FRONTEND_URL || 'http://localhost:8080';
 console.log('Frontend URL for CORS:', frontendURL);
 
-
-// Configure CORS - Development configuration
+// Configure CORS for development
 const corsOptions = {
   origin: true, // Allow all origins in development
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
-  optionsSuccessStatus: 200,
-  preflightContinue: true
+  exposedHeaders: ['Authorization']
 };
 
 app.use(cors(corsOptions));
@@ -80,19 +78,43 @@ app.use('/api/auth', authRoutes);
 const profileRoutes = require('./routes/profile');
 app.use('/api/profile', profileRoutes);
 
+// Social routes
+const socialRoutes = require('./routes/social');
+app.use('/api/social', socialRoutes);
 
+// Message routes
+const messageRoutes = require('./routes/messages');
+app.use('/api/messages', messageRoutes);
+
+// Runs routes
+const runsRoutes = require('./routes/runs');
+app.use('/api/runs', runsRoutes);
 
 // Test MongoDB connection
 app.get('/api/test-db', async (req, res) => {
   try {
-    if (!dbConnected) {
-      throw new Error('MongoDB is not connected yet. Please try again in a few seconds.');
+    // Check MongoDB connection status
+    const state = mongoose.connection.readyState;
+    const stateMap = {
+      0: 'disconnected',
+      1: 'connected',
+      2: 'connecting',
+      3: 'disconnecting'
+    };
+
+    if (state !== 1) {
+      throw new Error(`MongoDB is ${stateMap[state]}. Please try again in a few seconds.`);
     }
+
     // Try to get the list of collections
     const collections = await mongoose.connection.db.listCollections().toArray();
+    const users = await mongoose.connection.db.collection('users').countDocuments();
+
     res.json({ 
       status: 'connected',
-      collections: collections.map(c => c.name)
+      state: stateMap[state],
+      collections: collections.map(c => c.name),
+      userCount: users
     });
   } catch (err) {
     console.error('Database test error:', err);
@@ -106,8 +128,6 @@ app.get('/api/test-db', async (req, res) => {
 // MongoDB connection with debug logging
 console.log('Attempting MongoDB connection...');
 
-let dbConnected = false;
-
 async function connectToMongoDB() {
   try {
     if (!process.env.MONGODB_URI) {
@@ -115,7 +135,6 @@ async function connectToMongoDB() {
     }
     
     console.log('Connecting to MongoDB...');
-    console.log('MongoDB URI:', process.env.MONGODB_URI);
     const options = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
@@ -124,75 +143,38 @@ async function connectToMongoDB() {
       family: 4
     };
 
-    console.log('Attempting to connect with options:', options);
-    
-    try {
-      await mongoose.connect(process.env.MONGODB_URI, options);
-      console.log('MongoDB connection successful');
+    await mongoose.connect(process.env.MONGODB_URI, options);
+    console.log('MongoDB connection successful');
 
-      // Ensure collections exist
-      const collections = await mongoose.connection.db.listCollections().toArray();
-      const collectionNames = collections.map(c => c.name);
-      console.log('Existing collections:', collectionNames);
+    // Add connection event listeners
+    mongoose.connection.on('error', err => {
+      console.error('MongoDB connection error:', err);
+    });
 
-      // Create collections if they don't exist
-      if (!collectionNames.includes('runnerprofiles')) {
-        console.log('Creating runnerprofiles collection...');
-        await mongoose.connection.db.createCollection('runnerprofiles');
-        console.log('Created runnerprofiles collection');
-      }
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected');
+    });
 
-      // Create indexes
-      const RunnerProfile = require('./models/RunnerProfile');
-      await RunnerProfile.collection.createIndex({ user: 1 }, { unique: true });
-      await RunnerProfile.collection.createIndex({ location: '2dsphere' });
-      console.log('Indexes created for runnerprofiles collection');
-      console.log('Connected to MongoDB successfully');
-      return collections;
-    } catch (error) {
-      console.error('MongoDB connection error details:', {
-        name: error.name,
-        message: error.message,
-        code: error.code,
-        codeName: error.codeName
-      });
-      throw error;
-    }
-    const collections = await connectToMongoDB();
-    console.log('Available collections:', collections.map(c => c.name));
-    
-    // Test user creation
-    const User = require('./models/User');
-    try {
-      const testUser = new User({
-        name: 'Test User',
-        email: 'test' + Date.now() + '@test.com',
-        password: 'password123'
-      });
-      console.log('Attempting to save test user...');
-      await testUser.save();
-      console.log('Test user saved successfully with id:', testUser._id);
-      
-      // Verify user was saved
-      const foundUser = await User.findById(testUser._id);
-      console.log('Found test user in database:', foundUser ? 'Yes' : 'No');
-      
-      if (foundUser) {
-        // Clean up test user
-        await User.deleteOne({ _id: testUser._id });
-        console.log('Test user deleted');
-      }
-    } catch (testError) {
-      console.error('Test user creation failed:', testError);
-    }
-    
-    dbConnected = true;
-  } catch (err) {
-    console.error('MongoDB connection error:', err.message);
-    console.error('Full error:', err);
-    process.exit(1);
+    mongoose.connection.on('reconnected', () => {
+      console.log('MongoDB reconnected');
+    });
+
+    // Test the connection by listing collections
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const collectionNames = collections.map(c => c.name);
+    console.log('Connected to MongoDB. Available collections:', collectionNames);
+
+    // Test user count
+    const userCount = await mongoose.connection.db.collection('users').countDocuments();
+    console.log('Number of users in database:', userCount);
+
+    return true;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
   }
 }
+
 
 // Root route to show available endpoints
 app.get('/', (req, res) => {
@@ -242,7 +224,7 @@ async function startServer() {
 
     const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
-      console.log(`Test the server: http://localhost:${PORT}/api/health`);
+      console.log(`Frontend URL for CORS: ${process.env.FRONTEND_URL}`);
     });
 
     // Handle server errors

@@ -1,21 +1,27 @@
 import api from './api';
 
 export interface RunnerProfile {
-  experienceLevel: string;
-  averagePace: number;
-  weeklyMileage: number;
-  personalBests: {
+  _id?: string;
+  name: string;
+  email: string;
+  experienceLevel?: string;
+  averagePace?: number;
+  weeklyMileage?: number;
+  personalBests?: {
     mile?: number;
     fiveK?: number;
     tenK?: number;
     halfMarathon?: number;
     marathon?: number;
   };
-  preferredRunningTime: string;
-  location: {
+  preferredRunningTime?: string;
+  location?: {
     type: string;
     coordinates: [number, number];
   };
+  bio?: string;
+  goals?: string;
+  stravaConnected?: boolean;
 }
 
 export const getProfile = async (): Promise<RunnerProfile> => {

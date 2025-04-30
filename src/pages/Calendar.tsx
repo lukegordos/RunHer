@@ -1,37 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  MapPin, 
-  Plus, 
-  Users,
-  Activity
-} from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/use-toast";
 import AppLayout from "@/components/AppLayout";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import runsService from "@/services/runs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus } from "lucide-react";
 
 type RunEvent = {
   id: string;
+  title: string;
+  date: Date;
+  location: string;
+  distance: string;
+  duration: string;
+  description?: string;
+  type: 'solo' | 'group' | 'race' | 'training';
+};
+
+type NewRunEvent = {
   title: string;
   date: Date;
   time: string;
@@ -39,358 +30,346 @@ type RunEvent = {
   distance: string;
   duration: string;
   description: string;
-  participants: {
-    id: string;
-    name: string;
-  }[];
+  type: 'solo' | 'group' | 'race' | 'training';
+};
+
+const transformEventForDisplay = (run: any): RunEvent => {
+  try {
+    if (!run) {
+      throw new Error('No run data provided');
+    }
+
+    return {
+  id: run._id,
+  title: run.title || 'Untitled Run',
+  date: new Date(run.date),
+  location: run.meetingPoint || 'No location',
+  distance: `${run.distance?.value || 0} ${run.distance?.unit || 'miles'}`,
+  duration: `${Math.floor((run.duration || 0) / 60)} min`,
+  description: run.description || '',
+  type: run.type || 'solo'
+    };
+  } catch (error) {
+    console.error('Error transforming event:', error);
+    throw error;
+  }
 };
 
 const Calendar = () => {
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const [events, setEvents] = useState<RunEvent[]>([
-    {
-      id: "1",
-      title: "Morning Group Run",
-      date: new Date(2023, 5, 15),
-      time: "6:30 AM",
-      location: "Waterfront Park",
-      distance: "5K",
-      duration: "30 minutes",
-      description: "Easy pace run along the waterfront. All levels welcome!",
-      participants: [
-        { id: "1", name: "Sarah Johnson" },
-        { id: "2", name: "Melissa Chen" },
-        { id: "3", name: "Jessica Williams" }
-      ]
-    },
-    {
-      id: "2",
-      title: "Trail Run Adventure",
-      date: new Date(2023, 5, 18),
-      time: "8:00 AM",
-      location: "Forest Park",
-      distance: "10K",
-      duration: "1 hour",
-      description: "Moderate trail run with some elevation. Bring water!",
-      participants: [
-        { id: "1", name: "Sarah Johnson" },
-        { id: "4", name: "Amanda Taylor" }
-      ]
-    },
-    {
-      id: "3",
-      title: "Weekend Long Run",
-      date: new Date(2023, 5, 20),
-      time: "7:00 AM",
-      location: "Springwater Corridor",
-      distance: "Half Marathon",
-      duration: "2 hours",
-      description: "Training run for upcoming half marathon. Steady pace.",
-      participants: [
-        { id: "1", name: "Sarah Johnson" },
-        { id: "2", name: "Melissa Chen" },
-        { id: "5", name: "Stephanie Lee" }
-      ]
-    }
-  ]);
-  
-  const [newEvent, setNewEvent] = useState({
-    title: "",
+  const { user } = useAuth();
+  const [date, setDate] = useState<Date>(new Date());
+  const [events, setEvents] = useState<RunEvent[]>([]);
+  const [showAddEventDialog, setShowAddEventDialog] = useState(false);
+  const [newEvent, setNewEvent] = useState<NewRunEvent>({
+    title: '',
     date: new Date(),
-    time: "",
-    location: "",
-    distance: "",
-    duration: "",
-    description: ""
+    time: '',
+    location: '',
+    distance: '',
+    duration: '',
+    description: '',
+    type: 'solo'
   });
-  
-  const [dialogOpen, setDialogOpen] = useState(false);
-  
-  const todaysEvents = events.filter(
-    (event) => date && event.date.toDateString() === date.toDateString()
-  );
-  
-  const handleAddEvent = () => {
-    // Validate form data
-    if (!newEvent.title || !newEvent.time || !newEvent.location) {
+
+  const handleAddEvent = async () => {
+    try {
+      if (!user?._id) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('Creating event with data:', newEvent);
+      // Combine date and time
+      const [hours, minutes] = newEvent.time.split(':').map(Number);
+      const eventDate = new Date(newEvent.date);
+      eventDate.setHours(hours || 0, minutes || 0, 0, 0);
+
+      // Calculate values
+      const distanceValue = parseFloat(newEvent.distance) || 0;
+      const durationSeconds = parseInt(newEvent.duration) * 60 || 0; // Convert to seconds
+      
+      // Calculate pace (minutes per mile)
+      const paceMinutesPerMile = distanceValue > 0 ? durationSeconds / 60 / distanceValue : 0;
+
+      const eventData = {
+        title: newEvent.title,
+        date: eventDate,
+        meetingPoint: newEvent.location,
+        distance: {
+          value: distanceValue,
+          unit: 'miles'
+        },
+        duration: durationSeconds,
+        description: newEvent.description || '',
+        type: newEvent.type || 'solo',
+        status: 'scheduled' as const,
+        confirmed: false,
+        pace: paceMinutesPerMile,
+        createdBy: user._id
+      };
+
+      console.log('Sending event data to server:', eventData);
+      const response = await runsService.scheduleRun(eventData);
+      console.log('Server response:', response);
+
+      if (!response.data) {
+        throw new Error('No data received from server');
+      }
+
+      console.log('Created event:', response.data);
+      // Reload all events to ensure we have the latest data
+      await loadEvents();
+
       toast({
-        title: "Missing information",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
+        title: "Success",
+        description: "Run scheduled successfully",
+        variant: "default"
       });
-      return;
+      setShowAddEventDialog(false);
+      setNewEvent({
+        title: '',
+        date: new Date(),
+        time: '',
+        location: '',
+        distance: '',
+        duration: '',
+        description: '',
+        type: 'solo'
+      });
+    } catch (error) {
+      console.error('Error creating event:', error);
+      toast({
+        title: "Error",
+        description: "Failed to schedule run",
+        variant: "destructive"
+      });
     }
-    
-    const event: RunEvent = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...newEvent,
-      participants: [{ id: "1", name: "Sarah Johnson" }] // Current user
-    };
-    
-    setEvents([...events, event]);
-    setDialogOpen(false);
-    
-    // Reset form
-    setNewEvent({
-      title: "",
-      date: new Date(),
-      time: "",
-      location: "",
-      distance: "",
-      duration: "",
-      description: ""
-    });
-    
-    toast({
-      title: "Event created",
-      description: "Your running event has been added to the calendar.",
-    });
   };
-  
+
+  const loadEvents = async () => {
+    console.log('Loading events...');
+    try {
+      if (!date) {
+        console.log('No date selected, using current date');
+        setDate(new Date());
+        return;
+      }
+
+      // Get the start and end of the selected month
+      const selectedDate = new Date(date); // Create a copy to avoid mutations
+      const startDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      startDate.setHours(0, 0, 0, 0);
+
+      const endDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+      endDate.setHours(23, 59, 59, 999);
+
+      console.log('Selected date:', selectedDate);
+      console.log('Loading events between:', { startDate, endDate });
+
+      const response = await runsService.getCalendarRuns(startDate, endDate);
+      console.log('Response from server:', response);
+      
+      // Ensure we have an array of runs
+      const runs = Array.isArray(response.data) ? response.data : [];
+      console.log('Runs array:', runs);
+
+      const transformedEvents: RunEvent[] = runs.map((run: any) => {
+        console.log('Processing run:', run);
+        return transformEventForDisplay(run);
+      });
+
+      console.log('Transformed events:', transformedEvents);
+      setEvents(transformedEvents);
+    } catch (error: any) {
+      console.error('Error loading events:', {
+        error,
+        message: error.message,
+        response: error.response,
+        stack: error.stack
+      });
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || error.message || "Failed to load events",
+        variant: "destructive"
+      });
+    }
+  };
+
+  useEffect(() => {
+    loadEvents();
+  }, [date]); // Reload events when selected date changes
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row gap-8">
-          {/* Calendar sidebar */}
-          <div className="w-full md:w-1/3">
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold flex items-center">
-                  <CalendarIcon className="mr-2 h-5 w-5 text-runher" />
-                  Calendar
-                </h2>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button className="bg-runher hover:bg-runher-dark h-8 flex items-center gap-1">
-                      <Plus className="h-4 w-4" />
-                      New Run
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle className="text-runher">Schedule a Run</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Title</label>
-                        <Input 
-                          value={newEvent.title}
-                          onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
-                          placeholder="e.g. Morning Run"
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Calendar</h1>
+          <Dialog open={showAddEventDialog} onOpenChange={setShowAddEventDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-runher hover:bg-runher-dark flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Schedule a Run
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Schedule a Run</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Title</label>
+                  <Input 
+                    value={newEvent.title}
+                    onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                    placeholder="e.g. Morning Run"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">Date</label>
+                    <div className="border rounded-md">
+                      <CalendarComponent
+                        mode="single"
+                        selected={newEvent.date}
+                        onSelect={(date) => date && setNewEvent({...newEvent, date})}
+                        disabled={(date) => date < new Date()}
+                        className="rounded-md"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Time</label>
+                      <Input 
+                        value={newEvent.time}
+                        onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
+                        placeholder="e.g. 7:00 AM"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Distance (miles)</label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={newEvent.distance}
+                          onChange={(e) => setNewEvent({...newEvent, distance: e.target.value})}
+                          placeholder="Enter distance"
+                          className="pr-12"
                         />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-sm font-medium mb-1 block">Date</label>
-                          <div className="border rounded-md">
-                            <CalendarComponent
-                              mode="single"
-                              selected={newEvent.date}
-                              onSelect={(date) => date && setNewEvent({...newEvent, date})}
-                              disabled={(date) => date < new Date()}
-                              className="rounded-md"
-                              classNames={{
-                                months: "flex flex-col space-y-4",
-                                month: "space-y-4",
-                                caption: "flex justify-center pt-1 relative items-center",
-                                caption_label: "text-sm font-medium",
-                                nav: "space-x-1 flex items-center",
-                                nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-                                nav_button_previous: "absolute left-1",
-                                nav_button_next: "absolute right-1",
-                                table: "w-full border-collapse space-y-1",
-                                head_row: "flex",
-                                head_cell: "text-muted-foreground rounded-md w-8 font-normal text-[0.8rem]",
-                                row: "flex w-full mt-2",
-                                cell: "h-8 w-8 text-center text-xs p-0 relative",
-                                day: "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
-                                day_selected: "bg-runher text-white hover:bg-runher hover:text-white",
-                                day_today: "bg-accent text-accent-foreground",
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium mb-1 block">Time</label>
-                            <Input 
-                              value={newEvent.time}
-                              onChange={(e) => setNewEvent({...newEvent, time: e.target.value})}
-                              placeholder="e.g. 7:00 AM"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium mb-1 block">Distance (miles)</label>
-                            <div className="relative">
-                              <Input
-                                type="number"
-                                step="0.1"
-                                min="0"
-                                value={newEvent.distance}
-                                onChange={(e) => setNewEvent({...newEvent, distance: e.target.value})}
-                                placeholder="Enter distance"
-                                className="pr-12"
-                              />
-                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
-                                mi
-                              </span>
-                            </div>
-                          </div>
-                          <div>
-                            <label className="text-sm font-medium mb-1 block">Duration</label>
-                            <Input 
-                              value={newEvent.duration}
-                              onChange={(e) => setNewEvent({...newEvent, duration: e.target.value})}
-                              placeholder="e.g. 45 minutes"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Location</label>
-                        <Input 
-                          value={newEvent.location}
-                          onChange={(e) => setNewEvent({...newEvent, location: e.target.value})}
-                          placeholder="e.g. Waterfront Park"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium mb-1 block">Description</label>
-                        <Textarea 
-                          value={newEvent.description}
-                          onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
-                          placeholder="Add details about the run..."
-                          className="min-h-[80px]"
-                        />
-                      </div>
-                      <div className="pt-2">
-                        <Button onClick={handleAddEvent} className="w-full bg-runher hover:bg-runher-dark text-white font-medium h-10">
-                          Schedule Run
-                        </Button>
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                          mi
+                        </span>
                       </div>
                     </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-              
-              <CalendarComponent
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                className="rounded-md border"
-              />
-              
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-muted-foreground mb-2">UPCOMING RUNS</h3>
-                <div className="space-y-3">
-                  {events
-                    .filter(event => event.date >= new Date())
-                    .sort((a, b) => a.date.getTime() - b.date.getTime())
-                    .slice(0, 3)
-                    .map(event => (
-                      <div key={event.id} className="flex items-start p-3 rounded-lg bg-secondary">
-                        <div className="w-12 h-12 rounded-md bg-runher/10 flex flex-col items-center justify-center mr-3 text-runher font-medium">
-                          <span className="text-xs">{format(event.date, 'MMM')}</span>
-                          <span className="text-lg leading-tight">{format(event.date, 'd')}</span>
-                        </div>
-                        <div>
-                          <h4 className="font-medium">{event.title}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {event.time} • {event.location}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Duration</label>
+                      <Input 
+                        value={newEvent.duration}
+                        onChange={(e) => setNewEvent({...newEvent, duration: e.target.value})}
+                        placeholder="e.g. 45 minutes"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Location</label>
+                  <Input
+                    value={newEvent.location}
+                    onChange={(e) => setNewEvent({...newEvent, location: e.target.value})}
+                    placeholder="e.g. Waterfront Park"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Description</label>
+                  <Textarea 
+                    value={newEvent.description}
+                    onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
+                    placeholder="Add any additional details"
+                    className="min-h-[80px]"
+                  />
+                </div>
+                <div className="pt-2">
+                  <Button onClick={handleAddEvent} className="w-full bg-runher hover:bg-runher-dark text-white font-medium h-10">
+                    Schedule Run
+                  </Button>
                 </div>
               </div>
-            </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <CalendarComponent
+              mode="single"
+              selected={date}
+              onSelect={(newDate) => newDate && setDate(newDate)}
+              className="rounded-md border"
+            />
           </div>
-          
-          {/* Day view */}
-          <div className="w-full md:w-2/3">
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-              <h2 className="text-xl font-semibold mb-4">
-                {date ? format(date, 'EEEE, MMMM d, yyyy') : 'Select a date'}
-              </h2>
+          <div>
+            <h2 className="text-xl font-semibold mb-4">
+              Events for {format(date, 'MMMM d, yyyy')}
+            </h2>
+            {(() => {
+              const eventsForSelectedDate = events.filter(event => {
+                try {
+                  if (!event.date) return false;
+                  const eventDate = new Date(event.date);
+                  const selectedDate = new Date(date);
+                  
+                  // Compare year, month, and day
+                  const isSameDay = 
+                    eventDate.getFullYear() === selectedDate.getFullYear() &&
+                    eventDate.getMonth() === selectedDate.getMonth() &&
+                    eventDate.getDate() === selectedDate.getDate();
+                  
+                  console.log('Comparing dates:', {
+                    event: event.title,
+                    eventDate: eventDate.toISOString(),
+                    selectedDate: selectedDate.toISOString(),
+                    isSameDay
+                  });
+                  
+                  return isSameDay;
+                } catch (error) {
+                  console.error('Error comparing dates:', error);
+                  return false;
+                }
+              });
+              console.log('Events for selected date:', { date: date.toISOString(), eventCount: eventsForSelectedDate.length });
               
-              {todaysEvents.length > 0 ? (
-                <div className="space-y-6">
-                  {todaysEvents.map(event => (
-                    <div key={event.id} className="border border-border rounded-lg p-5">
-                      <h3 className="text-lg font-semibold mb-2 flex items-center">
-                        <Activity className="mr-2 h-5 w-5 text-runher" />
-                        {event.title}
-                      </h3>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div className="flex items-center text-sm">
-                          <Clock className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <span>
-                            {event.time} ({event.duration})
-                          </span>
-                        </div>
-                        <div className="flex items-center text-sm">
-                          <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
-                          <span>{event.location}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-4">
-                        <div className="text-sm font-medium mb-1">Distance</div>
-                        <div className="bg-secondary inline-block px-3 py-1 rounded-full text-sm">
-                          {event.distance}
-                        </div>
-                      </div>
-                      
-                      {event.description && (
-                        <div className="mb-4">
-                          <div className="text-sm font-medium mb-1">Description</div>
-                          <p className="text-sm text-muted-foreground">{event.description}</p>
-                        </div>
-                      )}
-                      
-                      <div>
-                        <div className="text-sm font-medium mb-2 flex items-center">
-                          <Users className="mr-1 h-4 w-4 text-muted-foreground" />
-                          <span>Participants ({event.participants.length})</span>
-                        </div>
-                        <div className="flex -space-x-2">
-                          {event.participants.map(participant => (
-                            <Avatar key={participant.id} className="h-8 w-8 border-2 border-background">
-                              <AvatarFallback className="bg-runher/10 text-runher text-xs">
-                                {participant.name.split(' ').map(name => name[0]).join('')}
-                              </AvatarFallback>
-                            </Avatar>
-                          ))}
-                          <Button variant="outline" className="h-8 w-8 rounded-full text-xs ml-2">
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
+              return eventsForSelectedDate.length === 0 ? (
+                <p className="text-muted-foreground">No events scheduled for {format(date, 'MMMM d, yyyy')}.</p>
+              ) : (
+                <div className="space-y-4">
+                  {eventsForSelectedDate.map((event) => (
+                    <div key={event.id} className="p-4 border rounded-lg hover:bg-accent">
+                      <h3 className="font-medium">{event.title}</h3>
+                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                        <p>
+                          {(() => {
+                            try {
+                              if (!event.date) return 'No time set';
+                              const eventDate = new Date(event.date);
+                              if (isNaN(eventDate.getTime())) return 'Invalid date';
+                              return format(eventDate, 'h:mm a');
+                            } catch (error) {
+                              console.error('Error formatting time:', error);
+                              return 'Error displaying time';
+                            }
+                          })()}
+                        </p>
+                        <p>{event.location}</p>
+                        <p>{event.distance} • {event.duration}</p>
+                        {event.description && <p>{event.description}</p>}
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-12">
-                  <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground/50" />
-                  <h3 className="mt-4 text-lg font-medium">No runs scheduled</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    You don't have any runs scheduled for this day.
-                  </p>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="mt-4 bg-runher hover:bg-runher-dark flex items-center gap-2">
-                        <Plus className="h-4 w-4" />
-                        Schedule a Run
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      {/* Same content as the other dialog */}
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              )}
-            </div>
+              );
+            })()
+            }
           </div>
         </div>
       </div>

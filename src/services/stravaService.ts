@@ -79,7 +79,7 @@ class StravaService {
     }
   }
 
-  public async getAthleteProfile(accessToken: string): Promise<StravaProfile> {
+  public async getProfile(accessToken: string): Promise<StravaProfile> {
     try {
       const response = await fetch('https://www.strava.com/api/v3/athlete', {
         headers: {

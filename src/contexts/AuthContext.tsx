@@ -3,7 +3,7 @@ import api from '@/services/api';
 
 interface User {
   _id: string;
-  username: string;
+  name: string;
   email: string;
 }
 
@@ -15,7 +15,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
@@ -28,9 +28,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (token) {
+      // Set token in both common headers and defaults
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers['Authorization'] = `Bearer ${token}`;
     } else {
       delete api.defaults.headers.common['Authorization'];
+      delete api.defaults.headers['Authorization'];
     }
   }, [token]);
 

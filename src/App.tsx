@@ -19,6 +19,7 @@ import RunningDashboard from "./pages/RunningDashboard";
 import LogRun from "./pages/LogRun";
 import FindRunners from "./pages/FindRunners";
 import EditProfile from "./pages/EditProfile";
+import Notifications from "./pages/Notifications";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
           <Route path="/running-dashboard" element={<RunningDashboard />} />
           <Route path="/log-run" element={<LogRun />} />
           <Route path="/find-runners" element={<FindRunners />} />
+          <Route path="/notifications" element={<Notifications />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, AtSign, Lock, Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { login } from "@/services/auth";
+import { authService } from "@/services/auth.service";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
@@ -31,7 +31,7 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      const response = await login({ email, password });
+      const response = await authService.login(email, password);
       
       if (response.token && response.user) {
         auth?.login(response.token, response.user);

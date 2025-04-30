@@ -59,4 +59,52 @@ router.get('/debug', async (req, res) => {
     }
 });
 
+// Search users
+router.get('/search', authenticate, async (req, res) => {
+  try {
+    const { query, experienceLevel, preferredTime, location, distance } = req.query;
+    
+    // Build search criteria
+    let searchCriteria = {};
+    
+    // Name search (case-insensitive)
+    if (query) {
+      searchCriteria.name = { $regex: query, $options: 'i' };
+    }
+
+    // Experience level match
+    if (experienceLevel) {
+      searchCriteria.experienceLevel = experienceLevel;
+    }
+
+    // Preferred time match
+    if (preferredTime) {
+      searchCriteria.preferredTime = preferredTime;
+    }
+
+    // Location search
+    if (location) {
+      // For now, simple location match
+      searchCriteria.location = { $regex: location, $options: 'i' };
+    }
+
+    // Maximum distance filter
+    if (distance) {
+      searchCriteria.preferredDistance = { $lte: parseInt(distance) };
+    }
+
+    // Exclude the requesting user from results
+    searchCriteria._id = { $ne: req.user._id };
+
+    const users = await User.find(searchCriteria)
+      .select('name email location experienceLevel preferredTime pace preferredDistance')
+      .limit(20);
+
+    res.json(users);
+  } catch (error) {
+    console.error('Search error:', error);
+    res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
 module.exports = router;

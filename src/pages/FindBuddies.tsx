@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { searchUsers } from "@/services/users";
+import { searchUsers, User, SearchCriteria } from "@/services/users";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -10,14 +10,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, MapPin, Calendar, Clock, Search, UserPlus, MessageCircle } from "lucide-react";
+import { MessageCircle, Users, UserPlus, MapPin, Calendar, Clock, Search } from "lucide-react";
+import { sendFriendRequest } from "@/services/users";
 import { toast } from "@/components/ui/use-toast";
 import AppLayout from "@/components/AppLayout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-type Runner = {
-  id: string;
+interface Runner {
+  _id: string;
   name: string;
+  email: string;
   location: string;
   experience: string;
   pace: string;
@@ -25,42 +27,63 @@ type Runner = {
   distance: number;
   compatibility: number;
   avatar?: string;
-};
+}
 
 const FindBuddies = () => {
   const [nameQuery, setNameQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [runners, setRunners] = useState<Runner[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useState({
     location: "",
-    experience: "",
+    experienceLevel: "",
     pace: "",
     distance: [5],
-    time: ""
+    preferredTime: ""
   });
-  
-  // Function to search users by name
-  const searchByName = async () => {
-    if (!nameQuery.trim()) return;
-    
+
+  // Function to find running buddies
+  const findBuddies = async () => {
     setLoading(true);
+    setError(null);
+
     try {
-      const results = await searchUsers(nameQuery);
-      const formattedResults: Runner[] = results.map(user => ({
-        id: user._id,
+      const searchCriteria: SearchCriteria = {
+        query: nameQuery?.trim() || undefined,
+        experienceLevel: searchParams.experienceLevel?.trim() || undefined,
+        preferredTime: searchParams.preferredTime?.trim() || undefined,
+        location: searchParams.location?.trim() || undefined,
+        distance: searchParams.distance[0]
+      };
+
+      const result = await searchUsers(searchCriteria);
+
+      if ('error' in result) {
+        setError(result.error);
+        setRunners([]);
+        return;
+      }
+
+      const mappedRunners: Runner[] = result.map(user => ({
+        _id: user._id,
         name: user.name,
-        location: 'Portland, OR', // Default values for display
-        experience: 'Intermediate',
-        pace: '9:00 min/mile',
-        preferredTime: 'Morning',
-        distance: 5.0,
-        compatibility: Math.floor(Math.random() * 30) + 70 // Random 70-100
+        email: user.email,
+        location: user.location || 'No location set',
+        experience: user.experienceLevel || 'Not specified',
+        pace: user.pace || 'Not specified',
+        preferredTime: user.preferredTime || 'Not specified',
+        distance: user.preferredDistance || 0,
+        compatibility: user.compatibility || 0,
+        avatar: undefined
       }));
-      setRunners(formattedResults);
-    } catch (error) {
-      console.error('Error searching users:', error);
+      setRunners(mappedRunners);
+    } catch (err: any) {
+      console.error('Error finding buddies:', err);
+      setError('Failed to find running buddies');
+      setRunners([]);
       toast({
         title: "Error",
-        description: "Failed to search for runners. Please try again.",
+        description: "Failed to find running buddies",
         variant: "destructive"
       });
     } finally {
@@ -68,68 +91,24 @@ const FindBuddies = () => {
     }
   };
 
-  const [runners, setRunners] = useState<Runner[]>([
-    {
-      id: "1",
-      name: "Melissa Chen",
-      location: "Portland, OR",
-      experience: "Intermediate",
-      pace: "9:00 min/mile",
-      preferredTime: "Morning",
-      distance: 5.0,
-      compatibility: 95,
-    },
-    {
-      id: "2",
-      name: "Jessica Williams",
-      location: "Portland, OR",
-      experience: "Advanced",
-      pace: "7:30 min/mile",
-      preferredTime: "Evening",
-      distance: 4.5,
-      compatibility: 82,
-    },
-    {
-      id: "3",
-      name: "Amanda Taylor",
-      location: "Lake Oswego, OR",
-      experience: "Beginner",
-      pace: "10:30 min/mile",
-      preferredTime: "Weekends",
-      distance: 5.6,
-      compatibility: 78,
-    },
-    {
-      id: "4",
-      name: "Rebecca Johnson",
-      location: "Beaverton, OR",
-      experience: "Intermediate",
-      pace: "8:45 min/mile",
-      preferredTime: "Morning",
-      distance: 7.1,
-      compatibility: 73,
-    },
-    {
-      id: "5",
-      name: "Stephanie Lee",
-      location: "Portland, OR",
-      experience: "Advanced",
-      pace: "7:00 min/mile",
-      preferredTime: "Evening",
-      distance: 8.3,
-      compatibility: 68,
+  const handleConnect = async (runnerId: string) => {
+    try {
+      await sendFriendRequest(runnerId);
+      toast({
+        title: "Friend Request Sent",
+        description: "Your connection request has been sent!",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || "Failed to send friend request",
+        variant: "destructive",
+      });
     }
-  ]);
-
-  const handleConnect = (runnerId: string) => {
-    toast({
-      title: "Connection Request Sent",
-      description: "We'll notify you when they respond.",
-    });
   };
 
   const handleMessage = (runnerId: string) => {
-    // Navigate to messages in a real implementation
+    // For now, just show a toast. In a real implementation, navigate to messages
     toast({
       title: "Starting conversation",
       description: "Opening message thread...",
@@ -146,16 +125,21 @@ const FindBuddies = () => {
           </h1>
           
           <div className="space-y-4 mb-6">
+            {error && (
+              <div className="bg-destructive/15 text-destructive px-4 py-2 rounded-md">
+                {error}
+              </div>
+            )}
             {/* Name search */}
             <div className="flex gap-4">
               <Input
                 placeholder="Search by name..."
                 value={nameQuery}
                 onChange={(e) => setNameQuery(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && searchByName()}
+                onKeyPress={(e) => e.key === 'Enter' && findBuddies()}
                 className="flex-1"
               />
-              <Button onClick={searchByName} disabled={loading}>
+              <Button onClick={findBuddies} disabled={loading}>
                 {loading ? 'Searching...' : 'Search'}
               </Button>
             </div>
@@ -170,7 +154,9 @@ const FindBuddies = () => {
                 }
                 className="flex-1"
               />
-              <Button onClick={() => console.log('Filter')}>Filter</Button>
+              <Button onClick={findBuddies} disabled={loading}>
+                {loading ? 'Filtering...' : 'Apply Filters'}
+              </Button>
             </div>
           </div>
 
@@ -178,13 +164,14 @@ const FindBuddies = () => {
             <div>
               <label className="text-sm font-medium mb-1 block">Experience Level</label>
               <Select 
-                value={searchParams.experience}
-                onValueChange={(value) => setSearchParams({...searchParams, experience: value})}
+                value={searchParams.experienceLevel}
+                onValueChange={(value) => setSearchParams({...searchParams, experienceLevel: value})}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Any experience" />
+                  <SelectValue placeholder="Select experience level" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
                   <SelectItem value="beginner">Beginner</SelectItem>
                   <SelectItem value="intermediate">Intermediate</SelectItem>
                   <SelectItem value="advanced">Advanced</SelectItem>
@@ -194,17 +181,18 @@ const FindBuddies = () => {
             <div>
               <label className="text-sm font-medium mb-1 block">Preferred Time</label>
               <Select
-                value={searchParams.time}
-                onValueChange={(value) => setSearchParams({...searchParams, time: value})}
+                value={searchParams.preferredTime}
+                onValueChange={(value) => setSearchParams({...searchParams, preferredTime: value})}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Any time" />
+                  <SelectValue placeholder="Select preferred time" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
                   <SelectItem value="morning">Morning</SelectItem>
                   <SelectItem value="afternoon">Afternoon</SelectItem>
                   <SelectItem value="evening">Evening</SelectItem>
-                  <SelectItem value="weekend">Weekends</SelectItem>
+                  <SelectItem value="weekend">Weekend</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -218,9 +206,10 @@ const FindBuddies = () => {
                 onValueChange={(value) => setSearchParams({...searchParams, pace: value})}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Any pace" />
+                  <SelectValue placeholder="Select pace" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="any">Any</SelectItem>
                   <SelectItem value="beginner">10:00+ min/mile</SelectItem>
                   <SelectItem value="casual">9:00-10:00 min/mile</SelectItem>
                   <SelectItem value="moderate">8:00-9:00 min/mile</SelectItem>
@@ -242,15 +231,82 @@ const FindBuddies = () => {
             </div>
           </div>
           
-          <Button className="w-full md:w-auto bg-runher hover:bg-runher-dark flex items-center gap-2">
+          <Button 
+            className="w-full md:w-auto bg-runher hover:bg-runher-dark flex items-center gap-2"
+            onClick={async () => {
+              try {
+                console.log('Finding runners with all params:', searchParams);
+                
+                // Check if at least one search criteria is provided
+                if (!nameQuery.trim() && 
+                    !searchParams.experienceLevel && 
+                    !searchParams.preferredTime && 
+                    !searchParams.location.trim()) {
+                  setError('Please provide at least one search criteria (name, experience level, preferred time, or location)');
+                  return;
+                }
+                
+                setLoading(true);
+                setError(null);
+
+                console.log('Starting search with params:', {
+                  query: nameQuery,
+                  experienceLevel: searchParams.experienceLevel,
+                  preferredTime: searchParams.preferredTime,
+                  location: searchParams.location
+                });
+
+                const results = await searchUsers({
+                  query: nameQuery,
+                  experienceLevel: searchParams.experienceLevel,
+                  preferredTime: searchParams.preferredTime,
+                  location: searchParams.location
+                });
+
+                console.log('Search results received:', results);
+                if (!results || !Array.isArray(results)) {
+                  console.error('Invalid response format:', results);
+                  throw new Error('Invalid response format');
+                }
+
+                const formattedResults: Runner[] = results.map(user => ({
+                  _id: user._id || 'unknown',
+                  name: user.name || 'Unknown User',
+                  email: user.email || 'no-email@example.com',
+                  location: user.location || searchParams.location || 'Portland, OR',
+                  experience: user.experienceLevel || searchParams.experienceLevel || 'Intermediate',
+                  pace: user.pace || searchParams.pace || '9:00 min/mile',
+                  preferredTime: user.preferredTime || searchParams.preferredTime || 'Morning',
+                  distance: searchParams.distance[0],
+                  compatibility: Math.floor(Math.random() * 30) + 70,
+                  avatar: undefined
+                }));
+
+                console.log('Formatted find runners results:', formattedResults);
+                setRunners(formattedResults);
+              } catch (error: any) {
+                console.error('Error finding runners:', error);
+                const errorMessage = error.response?.data?.error || error.message || "Failed to find runners. Please try again.";
+                setError(errorMessage);
+                toast({
+                  title: "Error",
+                  description: errorMessage,
+                  variant: "destructive"
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+          >
             <Search className="h-4 w-4" />
-            Find Runners
+            {loading ? 'Searching...' : 'Find Runners'}
           </Button>
         </div>
         
         <div className="space-y-4">
           {runners.map((runner) => (
-            <div key={runner.id} className="bg-white rounded-xl shadow-sm p-6">
+            <div key={runner._id} className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
                 <div className="flex flex-col items-center">
                   <Avatar className="h-20 w-20">
@@ -279,15 +335,15 @@ const FindBuddies = () => {
                 <div className="flex-grow grid grid-cols-1 md:grid-cols-3 gap-3 w-full">
                   <div className="bg-secondary rounded-lg p-3">
                     <div className="text-sm text-muted-foreground">Experience</div>
-                    <div className="font-medium">{runner.experience}</div>
+                    <div className="font-medium">{runner.experience || 'Not specified'}</div>
                   </div>
                   <div className="bg-secondary rounded-lg p-3">
                     <div className="text-sm text-muted-foreground">Avg. Pace</div>
-                    <div className="font-medium">{runner.pace}</div>
+                    <div className="font-medium">{runner.pace || 'Not specified'}</div>
                   </div>
                   <div className="bg-secondary rounded-lg p-3">
                     <div className="text-sm text-muted-foreground">Preferred Time</div>
-                    <div className="font-medium">{runner.preferredTime}</div>
+                    <div className="font-medium">{runner.preferredTime || 'Not specified'}</div>
                   </div>
                   <div className="bg-secondary rounded-lg p-3 md:col-span-3">
                     <div className="text-sm text-muted-foreground">Looking for</div>
@@ -295,20 +351,21 @@ const FindBuddies = () => {
                   </div>
                 </div>
                 
-                <div className="flex flex-col gap-2">
-                  <Button 
-                    onClick={() => handleConnect(runner.id)}
-                    variant="outline" 
-                    className="flex items-center gap-2"
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleConnect(runner._id)}
                   >
-                    <UserPlus className="h-4 w-4" />
+                    <UserPlus className="mr-2 h-4 w-4" />
                     Connect
                   </Button>
-                  <Button 
-                    onClick={() => handleMessage(runner.id)}
-                    className="bg-runher hover:bg-runher-dark flex items-center gap-2"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMessage(runner._id)}
                   >
-                    <MessageCircle className="h-4 w-4" />
+                    <MessageCircle className="mr-2 h-4 w-4" />
                     Message
                   </Button>
                 </div>

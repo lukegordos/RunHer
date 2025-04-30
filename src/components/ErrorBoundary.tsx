@@ -34,18 +34,37 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ color: 'red', padding: 24 }}>
-          <h2>Something went wrong.</h2>
-          <pre>
-            {this.state.error && typeof this.state.error === 'object'
-              ? [
-                  `Type: ${this.state.error.constructor?.name}`,
-                  `Message: ${this.state.error.message}`,
-                  `Stack: ${this.state.error.stack}`,
-                  `All properties: ${JSON.stringify(this.state.error, Object.getOwnPropertyNames(this.state.error), 2)}`
-                ].join('\n\n')
-              : String(this.state.error)}
-          </pre>
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-card p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-semibold text-foreground mb-4">
+              Oops! Something went wrong.
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              We apologize for the inconvenience. Please try refreshing the page or contact support if the problem persists.
+            </p>
+            <details className="text-sm text-muted-foreground">
+              <summary className="cursor-pointer mb-2 hover:text-foreground">
+                Technical Details
+              </summary>
+              <pre className="bg-muted p-4 rounded-md overflow-auto text-xs">
+                {this.state.error && typeof this.state.error === 'object'
+                  ? [
+                      `Type: ${this.state.error.constructor?.name}`,
+                      `Message: ${this.state.error.message}`,
+                      `Stack: ${this.state.error.stack}`,
+                    ].join('\n\n')
+                  : String(this.state.error)}
+              </pre>
+            </details>
+            <div className="mt-6 flex justify-end gap-4">
+              <button
+                onClick={() => window.location.reload()}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md transition-colors"
+              >
+                Refresh Page
+              </button>
+            </div>
+          </div>
         </div>
       );
     }

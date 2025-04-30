@@ -10,7 +10,8 @@ import {
   LogOut,
   Menu,
   X,
-  Home
+  Home,
+  Bell
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -43,6 +44,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
     { name: "Calendar", href: "/calendar", icon: Calendar },
     { name: "Messages", href: "/messages", icon: MessageCircle },
     { name: "Routes", href: "/routes", icon: Map },
+    { name: "Notifications", href: "/notifications", icon: Bell },
   ];
   
   const isActive = (path: string) => {

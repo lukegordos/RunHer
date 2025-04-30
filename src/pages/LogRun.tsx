@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import runsService, { Run } from '../services/runs';
+import runsService, { ScheduledRun } from '../services/runs';
 
 const LogRun: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<Partial<Run>>({
+  const [formData, setFormData] = useState<Partial<ScheduledRun>>({
     distance: { value: 0, unit: 'miles' },
     duration: 0,
     type: 'solo',
@@ -17,7 +17,7 @@ const LogRun: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      await runsService.logRun(formData as Omit<Run, 'pace'>);
+      await runsService.logRun(formData as Omit<ScheduledRun, 'pace'>);
       navigate('/running-dashboard');
     } catch (error) {
       console.error('Failed to log run:', error);
@@ -159,6 +159,21 @@ const LogRun: React.FC = () => {
             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             rows={3}
           />
+        </div>
+
+        {/* Confirm Run */}
+        <div className="mb-6">
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              name="confirmed"
+              checked={formData.confirmed || false}
+              onChange={(e) => setFormData(prev => ({ ...prev, confirmed: e.target.checked }))}
+              className="form-checkbox h-4 w-4 text-blue-500"
+              required
+            />
+            <span className="text-gray-700 text-sm">I confirm that this run information is accurate</span>
+          </label>
         </div>
 
         {/* Submit Button */}

@@ -66,28 +66,44 @@ router.put('/me', auth, async (req, res) => {
   console.log('Request body:', JSON.stringify(req.body, null, 2));
 
   try {
-    // Find and update the profile in one operation
-    const updatedProfile = await RunnerProfile.findOneAndUpdate(
-      { user: userId },
-      {
-        $set: {
-          experienceLevel: req.body.experienceLevel,
-          averagePace: req.body.averagePace,
-          weeklyMileage: req.body.weeklyMileage,
-          personalBests: req.body.personalBests,
-          preferredRunningTime: req.body.preferredRunningTime,
-          location: req.body.location || { type: 'Point', coordinates: [0, 0] }
+    // First check if the profile exists
+    let profile = await RunnerProfile.findOne({ user: userId });
+    
+    if (!profile) {
+      // Create a new profile if it doesn't exist
+      profile = new RunnerProfile({
+        user: userId,
+        experienceLevel: 'beginner',
+        averagePace: 0,
+        weeklyMileage: 0,
+        preferredRunningTime: 'morning',
+        location: {
+          type: 'Point',
+          coordinates: [0, 0]
         }
-      },
-      { 
-        new: true, // Return the updated document
-        upsert: true, // Create if it doesn't exist
-        runValidators: true // Run schema validations
-      }
-    );
+      });
+    }
 
-    console.log('Profile updated:', JSON.stringify(updatedProfile.toObject(), null, 2));
-    res.json(updatedProfile);
+    // Update fields that are provided
+    if (req.body.experienceLevel) profile.experienceLevel = req.body.experienceLevel;
+    if (typeof req.body.averagePace === 'number') profile.averagePace = req.body.averagePace;
+    if (typeof req.body.weeklyMileage === 'number') profile.weeklyMileage = req.body.weeklyMileage;
+    if (req.body.preferredRunningTime) profile.preferredRunningTime = req.body.preferredRunningTime;
+    if (req.body.personalBests) profile.personalBests = req.body.personalBests;
+    if (req.body.location) {
+      profile.location = {
+        type: 'Point',
+        coordinates: req.body.location.coordinates
+      };
+    }
+
+    console.log('Saving profile:', JSON.stringify(profile.toObject(), null, 2));
+    
+    // Save the profile
+    const savedProfile = await profile.save();
+    console.log('Profile saved:', JSON.stringify(savedProfile.toObject(), null, 2));
+    
+    res.json(savedProfile);
   } catch (err) {
     console.error('Error updating profile:', err);
     res.status(500).json({ error: 'Failed to update profile', details: err.message });

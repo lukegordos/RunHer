@@ -9,7 +9,7 @@ const runnerProfileSchema = new mongoose.Schema({
   },
   experienceLevel: {
     type: String,
-    enum: ['beginner', 'intermediate', 'advanced', 'expert'],
+    enum: ['beginner', 'intermediate', 'advanced'],
     default: 'beginner'
   },
   averagePace: {
@@ -33,7 +33,7 @@ const runnerProfileSchema = new mongoose.Schema({
   },
   preferredRunningTime: {
     type: String,
-    enum: ['early_morning', 'morning', 'afternoon', 'evening', 'night'],
+    enum: ['morning', 'afternoon', 'evening'],
     default: 'morning'
   },
   location: {

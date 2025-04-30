@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 mongoose.set('debug', true);
 
 const userSchema = new mongoose.Schema({
+  // Basic user info
   name: {
     type: String,
     required: true,
@@ -19,6 +20,26 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true
+  },
+
+  // Runner profile
+  experienceLevel: {
+    type: String,
+    enum: ['beginner', 'intermediate', 'advanced'],
+    default: 'beginner'
+  },
+  preferredTime: {
+    type: String,
+    enum: ['morning', 'afternoon', 'evening', 'weekend'],
+    default: 'morning'
+  },
+  location: {
+    type: String,
+    default: 'Portland, OR'
+  },
+  pace: {
+    type: String,
+    default: '10:00 min/mile'
   }
 });
 
@@ -28,4 +49,10 @@ userSchema.pre('save', function(next) {
   next();
 });
 
-module.exports = mongoose.model('users', userSchema);
+// Add pre-find hook for debugging
+userSchema.pre('find', function(next) {
+  console.log('Pre-find hook triggered with query:', this.getQuery());
+  next();
+});
+
+module.exports = mongoose.model('User', userSchema);

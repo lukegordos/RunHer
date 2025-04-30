@@ -27,7 +27,7 @@ export interface RunnerProfile {
   }>;
 }
 
-export interface Run {
+export interface ScheduledRun {
   date: Date;
   distance: {
     value: number;
@@ -49,6 +49,7 @@ export interface Run {
   notes?: string;
   feelingRating?: number;
   elevationGain?: number;
+  confirmed?: boolean;
   averageHeartRate?: number;
 }
 
@@ -59,6 +60,24 @@ export interface RunStats {
   totalDuration: number;
 }
 
+export interface CalendarRun {
+  _id: string;
+  title: string;
+  date: Date;
+  meetingPoint: string;
+  distance: {
+    value: number;
+    unit: string;
+  };
+  duration: number;
+  description?: string;
+  type: 'solo' | 'group' | 'race' | 'training';
+  status: 'scheduled' | 'completed' | 'cancelled';
+  confirmed: boolean;
+  createdBy?: string;
+  pace?: number;
+}
+
 const runsService = {
   // Runner Profile
   getProfile: () => api.get<RunnerProfile>('/runs/profile'),
@@ -66,16 +85,50 @@ const runsService = {
     api.put<RunnerProfile>('/runs/profile', profile),
 
   // Run Logging
-  logRun: (run: Omit<Run, 'pace'>) => api.post<Run>('/runs/log', run),
+  logRun: (run: Omit<ScheduledRun, 'pace'>) => api.post<ScheduledRun>('/runs/log', run),
   getRuns: (limit = 10, skip = 0) => 
-    api.get<Run[]>(`/runs/history?limit=${limit}&skip=${skip}`),
+    api.get<ScheduledRun[]>(`/runs/history?limit=${limit}&skip=${skip}`),
 
   // Stats
   getStats: () => api.get<RunStats>('/runs/stats'),
 
   // Nearby Runners
   findNearbyRunners: (longitude: number, latitude: number, maxDistance = 5000) =>
-    api.get<RunnerProfile[]>(`/runs/nearby?longitude=${longitude}&latitude=${latitude}&maxDistance=${maxDistance}`)
+    api.get<RunnerProfile[]>(`/runs/nearby?longitude=${longitude}&latitude=${latitude}&maxDistance=${maxDistance}`),
+
+  // Calendar
+  getCalendarRuns: async (startDate: Date, endDate: Date) => {
+    console.log('Getting calendar runs between:', { startDate, endDate });
+    const response = await api.get<CalendarRun[]>('/runs/calendar', {
+      params: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      }
+    });
+    console.log('Server response:', response);
+    const data = Array.isArray(response.data) ? response.data : [];
+    console.log('Parsed data:', data);
+    return { ...response, data };
+  },
+  
+  scheduleRun: async (run: Omit<CalendarRun, '_id'>) => {
+    console.log('Scheduling run with data:', run);
+    const response = await api.post<CalendarRun>('/runs/calendar', run);
+    console.log('Server response:', response);
+    return response;
+  },
+  
+  updateScheduledRun: (runId: string, run: Partial<CalendarRun>) =>
+    api.put<CalendarRun>(`/runs/calendar/${runId}`, run),
+  
+  deleteScheduledRun: (runId: string) =>
+    api.delete(`/runs/calendar/${runId}`),
+  
+  inviteToRun: (runId: string, userId: string) =>
+    api.post(`/runs/calendar/${runId}/invite`, { userId }),
+  
+  respondToInvite: (runId: string, response: 'accept' | 'decline') =>
+    api.post(`/runs/calendar/${runId}/respond`, { response })
 };
 
 export default runsService;

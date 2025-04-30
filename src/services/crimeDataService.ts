@@ -140,6 +140,28 @@ export const fetchCrimeData = async (
   }
 };
 
+// Helper function to check if a point is within radius miles of a route point
+export const isWithinRadius = (
+  point1: { latitude: number; longitude: number },
+  point2: { latitude: number; longitude: number },
+  radiusMiles: number
+): boolean => {
+  const R = 3959; // Earth's radius in miles
+  const lat1 = point1.latitude * Math.PI / 180;
+  const lat2 = point2.latitude * Math.PI / 180;
+  const dLat = (point2.latitude - point1.latitude) * Math.PI / 180;
+  const dLon = (point2.longitude - point1.longitude) * Math.PI / 180;
+
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+           Math.cos(lat1) * Math.cos(lat2) *
+           Math.sin(dLon/2) * Math.sin(dLon/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c;
+
+  return distance <= radiusMiles;
+};
+
 // Helper function to map crime types to severity levels
 const mapSeverity = (method: string, offense: string): 'low' | 'medium' | 'high' => {
   const offenseLower = offense.toLowerCase();
@@ -176,14 +198,14 @@ const mapSeverity = (method: string, offense: string): 'low' | 'medium' | 'high'
 // Calculate safety score based on crime data with detailed explanation
 export const calculateSafetyScore = async (
   crimes: CrimeData[],
-  latitude: number,
-  longitude: number
+  routePoints: [number, number][],
+  radiusMiles: number = 0.5
 ): Promise<SafetyScoreDetails> => {
   // Initialize safety score details
   const safetyDetails: SafetyScoreDetails = {
     score: 5.0,
     crimeFactors: {
-      crimeCount: crimes.length,
+      crimeCount: 0,
       severityCounts: {
         high: 0,
         medium: 0,
@@ -198,62 +220,97 @@ export const calculateSafetyScore = async (
       explanation: 'This area appears to be safe based on recent crime data.'
     }
   };
-  
-  if (crimes.length === 0) {
+
+  // Fetch crime data for each point along the route
+  let allCrimes: CrimeData[] = [];
+  const processedCrimeIds = new Set<string>(); // To avoid counting the same crime twice
+
+  for (const [lat, lng] of routePoints) {
+    try {
+      const pointCrimes = await fetchCrimeData(lat, lng, radiusMiles * 1.60934); // Convert miles to km
+      
+      // Only add crimes that are within radius of any route point and haven't been counted yet
+      for (const crime of pointCrimes) {
+        if (!processedCrimeIds.has(crime.id)) {
+          const isNearRoute = routePoints.some(([routeLat, routeLng]) =>
+            isWithinRadius(
+              { latitude: crime.location.latitude, longitude: crime.location.longitude },
+              { latitude: routeLat, longitude: routeLng },
+              radiusMiles
+            )
+          );
+
+          if (isNearRoute) {
+            allCrimes.push(crime);
+            processedCrimeIds.add(crime.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching crime data for point:', { lat, lng }, error);
+    }
+  }
+
+  if (allCrimes.length === 0) {
     return safetyDetails; // Return default safe score if no crimes
   }
-  
+
   // Count crimes by severity
-  crimes.forEach(crime => {
+  allCrimes.forEach(crime => {
     safetyDetails.crimeFactors.severityCounts[crime.severity]++;
   });
-  
+
+  safetyDetails.crimeFactors.crimeCount = allCrimes.length;
+
   // Get recent crimes (up to 5)
-  const recentCrimes = [...crimes]
+  const recentCrimes = [...allCrimes]
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .slice(0, 5);
-  
+
   safetyDetails.crimeFactors.recentCrimes = recentCrimes.map(crime => 
     `${new Date(crime.date).toLocaleDateString()}: ${crime.type} (${crime.severity} severity)`
   );
-  
-  // Weight crimes by severity
+
+  // Stricter weights for crime severity
   const severityWeights = {
-    low: 1,
-    medium: 2,
-    high: 3
+    low: 2,
+    medium: 5,
+    high: 10
   };
-  
-  const totalWeight = crimes.reduce((sum, crime) => sum + severityWeights[crime.severity], 0);
-  
-  // Calculate base safety score (5 is safest, 1 is least safe)
-  // The formula is designed to decrease as crime count and severity increase
-  let safetyScore = 5 - Math.min(4, (totalWeight / 10));
+
+  const totalWeight = allCrimes.reduce((sum, crime) => sum + severityWeights[crime.severity], 0);
+
+  // New: Lower denominator, higher penalty per incident, so even a few crimes drop score quickly
+  let safetyScore = 5 - Math.min(4.5, (totalWeight / (8 * routePoints.length)));
   safetyScore = Math.max(1, Math.round(safetyScore * 10) / 10);
-  
+
   // Update the score in our details object
   safetyDetails.score = safetyScore;
-  
-  // Generate explanation based on crime data
+
+  // Stricter explanation text
   let explanation = '';
-  if (safetyScore >= 4.5) {
-    explanation = 'This area appears to be very safe with minimal reported crime.';
-  } else if (safetyScore >= 3.5) {
-    explanation = 'This area is generally safe with some minor incidents reported.';
-  } else if (safetyScore >= 2.5) {
-    explanation = 'Exercise caution in this area due to moderate crime activity.';
-  } else if (safetyScore >= 1.5) {
-    explanation = 'This area has significant crime activity. Extra vigilance recommended.';
+  if (safetyScore >= 4.8) {
+    explanation = `This route is extremely safe. No recent significant incidents reported within ${radiusMiles} miles.`;
+  } else if (safetyScore >= 4.2) {
+    explanation = `This route is generally safe, but minor incidents have been reported nearby. Remain alert.`;
+  } else if (safetyScore >= 3.0) {
+    explanation = `Caution: Multiple incidents reported, including ${safetyDetails.crimeFactors.severityCounts.high} serious ones. Consider safer alternatives or running with a group.`;
+  } else if (safetyScore >= 2.0) {
+    explanation = `Warning: This route has a high number of incidents (${allCrimes.length}). Not recommended for solo runs.`;
   } else {
-    explanation = 'High crime area. Consider avoiding, especially at night.';
+    explanation = `Danger: Very high crime area (${allCrimes.length} incidents, ${safetyDetails.crimeFactors.severityCounts.high} serious). Strongly discouraged.`;
   }
-  
+
   safetyDetails.predictionDetails.explanation = explanation;
-  
+
   try {
+    // Get the midpoint of the route for news analysis
+    const midIndex = Math.floor(routePoints.length / 2);
+    const [midLat, midLng] = routePoints[midIndex];
+
     // Fetch and analyze news data for the location
     console.log('Fetching news data for predictive safety analysis...');
-    const newsArticles = await fetchNewsForLocation(latitude, longitude);
+    const newsArticles = await fetchNewsForLocation(midLat, midLng);
     
     if (newsArticles.length > 0) {
       // Analyze news for safety concerns
@@ -267,7 +324,6 @@ export const calculateSafetyScore = async (
         
         // Apply adjustment to safety score
         safetyScore = Math.max(1, Math.min(5, safetyScore + newsAdjustment.adjustment));
-        // Round to 1 decimal place
         safetyScore = Math.round(safetyScore * 10) / 10;
         
         // Update the score in our details object
@@ -279,7 +335,7 @@ export const calculateSafetyScore = async (
           impact: Math.abs(newsAdjustment.adjustment),
           confidence: newsAdjustment.confidence,
           reasons: newsAdjustment.reasons,
-          recentEvents: newsAnalysis.recentEvents.slice(0, 3) // Include top 3 recent events
+          recentEvents: newsAnalysis.recentEvents.slice(0, 3)
         };
         
         // Update prediction details
@@ -295,7 +351,7 @@ export const calculateSafetyScore = async (
     console.error('Error incorporating news data into safety score:', error);
     // Continue with the base safety score if news analysis fails
   }
-  
+
   return safetyDetails;
 };
 

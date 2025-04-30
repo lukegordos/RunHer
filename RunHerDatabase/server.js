@@ -176,6 +176,14 @@ async function connectToMongoDB() {
 }
 
 
+// Import route handlers
+const routesRouter = require('./routes/routes');
+const runsRouter = require('./routes/runs');
+
+// Use route handlers
+app.use('/api/routes', routesRouter);
+app.use('/api/runs', runsRouter);
+
 // Root route to show available endpoints
 app.get('/', (req, res) => {
   res.json({

@@ -137,8 +137,10 @@ const RunningRoutes = () => {
               ) : (
                 <RoutesMap 
                   routes={routesWithPoints}
-                  height="600px"
+                  height="400px"
                   className="rounded-lg shadow-lg"
+                  center={routesWithPoints[0].points ? [routesWithPoints[0].points[0][0], routesWithPoints[0].points[0][1]] : [38.9072, -77.0369]}
+                  zoom={13}
                 />
               )
             ) : (

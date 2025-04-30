@@ -5,24 +5,14 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
-    port: 8080,
-    strictPort: false,
+    port: 3000,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:5000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
-  },
-  preview: {
-    port: 8080,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
+        ws: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
     }

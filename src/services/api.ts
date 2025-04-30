@@ -9,7 +9,7 @@ interface CustomAxiosInstance extends AxiosInstance {
 }
 
 const api: CustomAxiosInstance = axios.create({
-  baseURL: 'http://localhost:5000',
+  baseURL: process.env.NODE_ENV === 'development' ? 'http://localhost:5000' : '/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'

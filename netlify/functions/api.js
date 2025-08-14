@@ -97,8 +97,9 @@ app.get('/health', (req, res) => {
 // Test endpoint for debugging
 app.get('/test', (req, res) => {
   res.json({
-    message: 'API is working!',
+    message: 'API is working! Updated with auth routes.',
     timestamp: new Date().toISOString(),
+    version: '1.1.0',
     environment: {
       nodeEnv: process.env.NODE_ENV,
       hasMongodbUri: !!process.env.MONGODB_URI,

@@ -64,8 +64,20 @@ app.use((req, res, next) => {
 });
 
 // Use route handlers with correct path mounting (with safety checks)
-if (authRouter) app.use('/auth', authRouter);
-if (usersRouter) app.use('/users', usersRouter);
+if (authRouter) {
+  app.use('/auth', authRouter);
+  console.log('✅ Auth router loaded');
+} else {
+  console.error('❌ Auth router failed to load');
+}
+
+if (usersRouter) {
+  app.use('/users', usersRouter);
+  console.log('✅ Users router loaded');
+} else {
+  console.error('❌ Users router failed to load');
+}
+
 if (routesRouter) app.use('/routes', routesRouter);
 if (runsRouter) app.use('/runs', runsRouter);
 if (messagesRouter) app.use('/messages', messagesRouter);
@@ -104,15 +116,54 @@ app.get('/test', (req, res) => {
       nodeEnv: process.env.NODE_ENV,
       hasMongodbUri: !!process.env.MONGODB_URI,
       hasJwtSecret: !!process.env.JWT_SECRET,
-      mongoConnection: mongoose.connection.readyState
-    }
+      mongoConnection: mongoose.connection.readyState,
+      mongoState: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown'
+    },
+    availableRoutes: [
+      '/api/auth/register',
+      '/api/auth/login', 
+      '/api/test',
+      '/api/health'
+    ]
   });
 });
 
-// Handle 404s
+// Simple registration test endpoint
+app.post('/test-register', async (req, res) => {
+  try {
+    console.log('Test registration attempt:', req.body);
+    res.json({
+      message: 'Test registration endpoint reached',
+      receivedData: req.body,
+      mongoConnection: mongoose.connection.readyState,
+      hasRequiredEnvVars: {
+        mongodb: !!process.env.MONGODB_URI,
+        jwt: !!process.env.JWT_SECRET
+      }
+    });
+  } catch (error) {
+    console.error('Test registration error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Handle 404s with more helpful information
 app.use('*', (req, res) => {
   console.log('404 - Route not found:', req.originalUrl);
-  res.status(404).json({ error: 'Route not found', path: req.originalUrl });
+  res.status(404).json({ 
+    error: 'Route not found', 
+    path: req.originalUrl,
+    method: req.method,
+    availableRoutes: [
+      'GET /api/test',
+      'GET /api/health', 
+      'POST /api/test-register',
+      'POST /api/auth/register',
+      'POST /api/auth/login',
+      'GET /api/users'
+    ],
+    suggestion: 'Try /api/test to verify the API is working'
+  });
 });
 
 // Global error handler

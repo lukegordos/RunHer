@@ -48,6 +48,33 @@ interface ErrorResponse {
 type SearchResult = User[] | ErrorResponse;
 
 export const searchUsers = async (params: SearchParams): Promise<SearchResult> => {
+  if (localStorage.getItem('demoMode') === 'true') {
+    return Promise.resolve([
+      {
+        _id: 'demo-user-1',
+        name: 'Sarah Chen',
+        email: 'sarah@demo.com',
+        location: 'San Francisco, CA',
+        experienceLevel: 'intermediate',
+        preferredTime: 'morning',
+        pace: '9:00/mile',
+        compatibility: 85,
+        preferredDistance: 5
+      },
+      {
+        _id: 'demo-user-2',
+        name: 'Maya Rodriguez',
+        email: 'maya@demo.com',
+        location: 'Oakland, CA',
+        experienceLevel: 'advanced',
+        preferredTime: 'evening',
+        pace: '7:30/mile',
+        compatibility: 72,
+        preferredDistance: 8
+      }
+    ]);
+  }
+  
   try {
     const cleanParams = Object.fromEntries(
       Object.entries(params).filter(([_, v]) => v != null && v !== '')
@@ -78,6 +105,20 @@ export const searchUsers = async (params: SearchParams): Promise<SearchResult> =
 };
 
 export const getUserProfile = async (userId: string): Promise<User> => {
+  if (localStorage.getItem('demoMode') === 'true') {
+    return Promise.resolve({
+      _id: userId,
+      name: 'Demo User',
+      email: 'demo@runher.com',
+      location: 'San Francisco, CA',
+      experienceLevel: 'intermediate',
+      preferredTime: 'morning',
+      pace: '9:30/mile',
+      compatibility: 90,
+      preferredDistance: 5
+    });
+  }
+  
   try {
     const response = await api.get<User>(`/social/users/${userId}`);
     return response.data;
@@ -89,6 +130,10 @@ export const getUserProfile = async (userId: string): Promise<User> => {
 
 // Send friend request
 export const sendFriendRequest = async (userId: string) => {
+  if (localStorage.getItem('demoMode') === 'true') {
+    return Promise.resolve({ success: true, message: 'Friend request sent!' });
+  }
+  
   try {
     const response = await api.post(`/api/social/friends/request/${userId}`);
     return response.data;
@@ -100,6 +145,10 @@ export const sendFriendRequest = async (userId: string) => {
 
 // Accept/reject friend request
 export const updateFriendRequest = async (requestId: string, status: 'accepted' | 'rejected') => {
+  if (localStorage.getItem('demoMode') === 'true') {
+    return Promise.resolve({ success: true, status });
+  }
+  
   try {
     const response = await api.put(`/api/social/friends/request/${requestId}`, { status });
     return response.data;
@@ -111,6 +160,34 @@ export const updateFriendRequest = async (requestId: string, status: 'accepted' 
 
 // Get friend requests
 export const getFriendRequests = async (): Promise<FriendRequests> => {
+  if (localStorage.getItem('demoMode') === 'true') {
+    return Promise.resolve({
+      sent: [],
+      received: [
+        {
+          _id: 'demo-request-1',
+          requester: {
+            _id: 'demo-user-1',
+            name: 'Sarah Chen',
+            email: 'sarah@demo.com',
+            location: 'San Francisco, CA',
+            experienceLevel: 'intermediate',
+            preferredTime: 'morning',
+            pace: '9:00/mile'
+          },
+          recipient: {
+            _id: 'demo-current-user',
+            name: 'Demo User',
+            email: 'demo@runher.com',
+            location: 'San Francisco, CA'
+          },
+          status: 'pending',
+          createdAt: new Date().toISOString()
+        }
+      ]
+    });
+  }
+  
   try {
     const response = await api.get<FriendRequests>('/api/social/friends/requests');
     if (!response.data) {

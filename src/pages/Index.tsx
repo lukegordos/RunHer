@@ -84,6 +84,16 @@ const Index = () => {
                 </Button>
               </div>
               
+              {/* Demo Mode Button */}
+              <div className="pt-4">
+                <Button asChild variant="ghost" size="lg" className="h-12 px-8 text-runher hover:bg-runher/10">
+                  <Link to="/login">
+                    🎭 Try Demo Mode
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+              
               <div className="pt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-6 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-runher" />

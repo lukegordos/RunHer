@@ -177,6 +177,20 @@ const Login = () => {
             </Button>
           </form>
 
+          {/* Skip Sign In Button */}
+          <div className="text-center">
+            <Button
+              variant="outline"
+              className="w-full h-12 rounded-md border-runher text-runher hover:bg-runher hover:text-white transition-all"
+              onClick={() => {
+                auth?.loginDemo();
+                navigate("/profile");
+              }}
+            >
+              Skip Sign In - Explore Demo
+            </Button>
+          </div>
+
           <div className="text-center">
             <p className="text-sm text-muted-foreground">
               Don't have an account?{" "}

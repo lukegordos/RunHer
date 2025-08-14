@@ -6,9 +6,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { ChevronRight, AtSign, Lock, Eye, EyeOff, UserPlus, ChevronLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { register } from "@/services/auth";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Register = () => {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -205,6 +207,20 @@ const Register = () => {
               {!isLoading && <ChevronRight className="h-4 w-4" />}
             </Button>
           </form>
+
+          {/* Skip Sign In Button */}
+          <div className="text-center">
+            <Button
+              variant="outline"
+              className="w-full h-12 rounded-md border-runher text-runher hover:bg-runher hover:text-white transition-all"
+              onClick={() => {
+                auth?.loginDemo();
+                navigate("/profile");
+              }}
+            >
+              Skip Registration - Explore Demo
+            </Button>
+          </div>
 
           <div className="text-center">
             <p className="text-sm text-muted-foreground">

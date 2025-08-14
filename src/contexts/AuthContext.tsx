@@ -11,6 +11,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   login: (token: string, user: User) => void;
+  loginDemo: () => void;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -20,9 +21,25 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
     const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    if (savedUser) {
+      return JSON.parse(savedUser);
+    }
+    // Check for demo mode
+    const demoMode = localStorage.getItem('demoMode');
+    if (demoMode === 'true') {
+      return {
+        _id: 'demo-user',
+        name: 'Demo User',
+        email: 'demo@runher.com'
+      };
+    }
+    return null;
   });
   const [token, setToken] = useState<string | null>(() => {
+    const demoMode = localStorage.getItem('demoMode');
+    if (demoMode === 'true') {
+      return 'demo-token';
+    }
     return localStorage.getItem('token');
   });
 
@@ -42,6 +59,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(userData);
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.removeItem('demoMode'); // Clear demo mode if logging in normally
+  };
+
+  const loginDemo = () => {
+    const demoUser = {
+      _id: 'demo-user',
+      name: 'Demo User',
+      email: 'demo@runher.com'
+    };
+    setToken('demo-token');
+    setUser(demoUser);
+    localStorage.setItem('demoMode', 'true');
+    localStorage.setItem('token', 'demo-token');
+    localStorage.setItem('user', JSON.stringify(demoUser));
   };
 
   const logout = () => {
@@ -49,6 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('demoMode');
     delete api.defaults.headers.common['Authorization'];
   };
 
@@ -57,6 +89,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user,
       token,
       login,
+      loginDemo,
       logout,
       isAuthenticated: !!token && !!user
     }}>
